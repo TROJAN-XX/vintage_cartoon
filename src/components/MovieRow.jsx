@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Play, Heart, Star, Shield, Compass } from 'lucide-react';
 
 export default function MovieRow({ 
@@ -8,9 +8,25 @@ export default function MovieRow({
   onExplore,
   watchlist, 
   onToggleWatchlist, 
-  isGrid = false 
+  isGrid = false,
+  zoneId,
+  registerZone,
+  unregisterZone,
 }) {
   const rowRef = useRef(null);
+  const containerRef = useRef(null);
+
+  // Register this row's cards as a keyboard navigation zone
+  useEffect(() => {
+    if (!registerZone || !zoneId) return;
+    registerZone(zoneId, () => {
+      if (!containerRef.current) return [];
+      return Array.from(containerRef.current.querySelectorAll('.cartoon-card[tabindex="0"]'));
+    });
+    return () => {
+      if (unregisterZone) unregisterZone(zoneId);
+    };
+  }, [zoneId, registerZone, unregisterZone, cartoons]);
 
   const scroll = (direction) => {
     if (rowRef.current) {
@@ -40,7 +56,7 @@ export default function MovieRow({
   // Grid layout for search results
   if (isGrid) {
     return (
-      <div className="movie-grid-container">
+      <div className="movie-grid-container" ref={containerRef}>
         <h2 className="row-title-neon lazy-reveal reveal-right">{title}</h2>
         <div className="movie-grid lazy-reveal reveal-up delay-100">
           {cartoons.map((cartoon) => (
@@ -60,7 +76,7 @@ export default function MovieRow({
 
   // Row layout with sliding controls
   return (
-    <div className="movie-row-container lazy-reveal reveal-up">
+    <div className="movie-row-container lazy-reveal reveal-up" ref={containerRef}>
       <h2 className="row-title-neon lazy-reveal reveal-right delay-100">{title}</h2>
       <div className="movie-row-wrapper lazy-reveal reveal-scale delay-200">
         <button className="row-arrow arrow-left" onClick={() => scroll('left')} aria-label="Scroll left">
@@ -103,6 +119,14 @@ function CartoonCard({ cartoon, onPlay, onExplore, isFav, onToggleFav }) {
     }
   };
 
+  // Keyboard: Enter/Space triggers card click
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleCardClick();
+    }
+  };
+
   const handleMouseMove = (e) => {
     if (!cardRef.current) return;
     const card = cardRef.current;
@@ -136,14 +160,19 @@ function CartoonCard({ cartoon, onPlay, onExplore, isFav, onToggleFav }) {
     <div 
       className={`cartoon-card ${isHubEntry ? 'hub-entry-card' : ''}`}
       ref={cardRef}
+      tabIndex={0}
+      role="button"
+      aria-label={`Play ${cartoon.title}`}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
+      onKeyDown={handleKeyDown}
+      onClick={handleCardClick}
     >
       {/* Dynamic Glare Overlay */}
       <div className="card-glare" ref={glareRef} />
 
       {/* Thumbnail with overlay gradient */}
-      <div className="card-thumbnail-wrapper" onClick={handleCardClick}>
+      <div className="card-thumbnail-wrapper">
         <img src={cartoon.thumbnail} alt={cartoon.title} className="card-image" loading="lazy" />
         <div className="card-overlay">
           <div className="card-play-circle">
@@ -170,7 +199,7 @@ function CartoonCard({ cartoon, onPlay, onExplore, isFav, onToggleFav }) {
       {/* Card Info details */}
       <div className="card-details">
         <div className="card-header-row">
-          <h3 className="card-title" onClick={handleCardClick}>{cartoon.title}</h3>
+          <h3 className="card-title">{cartoon.title}</h3>
           {!isHubEntry && (
             <button 
               className={`card-fav-btn ${isFav ? 'active' : ''}`}

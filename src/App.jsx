@@ -8,10 +8,20 @@ import SearchFilter from './components/SearchFilter';
 import MovieRow from './components/MovieRow';
 import VideoModal from './components/VideoModal';
 import CustomCursor from './components/CustomCursor';
+import { useKeyboardNav } from './hooks/useKeyboardNav';
 
 export default function App() {
   // Navigation context state: null (general catalog) or 'jackie-chan' (dedicated hub)
   const [currentShowContext, setCurrentShowContext] = useState(null);
+
+  // Keyboard navigation
+  const { registerZone, unregisterZone } = useKeyboardNav({
+    modalOpen: false,
+    onCloseModal: () => setActiveCartoon(null),
+  });
+
+  /* eslint-disable no-use-before-define */
+  // Note: activeCartoon referenced below is declared at line ~23
 
   // Watchlist persisted state
   const [watchlist, setWatchlist] = useState(() => {
@@ -234,6 +244,10 @@ export default function App() {
   return (
     <div className="app-container">
       <CustomCursor />
+      {/* Keyboard Navigation Hint Toast */}
+      <div className="kb-hint" aria-hidden="true">
+        <span>⌨️ <kbd>↑↓</kbd> rows &nbsp; <kbd>←→</kbd> cards &nbsp; <kbd>Enter</kbd> play &nbsp; <kbd>Esc</kbd> back</span>
+      </div>
       {/* Sleek, Context-Aware Navbar */}
       <Navbar
         currentShowContext={currentShowContext}
@@ -242,6 +256,8 @@ export default function App() {
         setActiveCategory={setActiveCategory}
         watchlistCount={watchlist.length}
         scrollToSection={scrollToSection}
+        registerZone={registerZone}
+        unregisterZone={unregisterZone}
       />
 
       {/* Hero Banner Section */}
@@ -252,6 +268,8 @@ export default function App() {
         onExplore={enterJackieChanHub}
         isInWatchlist={watchlist.some((item) => item.id === featuredCartoon.id)}
         onToggleWatchlist={handleToggleWatchlist}
+        registerZone={registerZone}
+        unregisterZone={unregisterZone}
       />
 
       {/* Advanced Search & Filter Section */}
@@ -286,6 +304,9 @@ export default function App() {
             watchlist={watchlist}
             onToggleWatchlist={handleToggleWatchlist}
             isGrid={true}
+            zoneId="grid-main"
+            registerZone={registerZone}
+            unregisterZone={unregisterZone}
           />
         ) : (
           <>
@@ -298,6 +319,9 @@ export default function App() {
                 onExplore={enterJackieChanHub}
                 watchlist={watchlist}
                 onToggleWatchlist={handleToggleWatchlist}
+                zoneId="row-watchlist"
+                registerZone={registerZone}
+                unregisterZone={unregisterZone}
               />
             )}
 
@@ -311,6 +335,9 @@ export default function App() {
                   onExplore={enterJackieChanHub}
                   watchlist={watchlist}
                   onToggleWatchlist={handleToggleWatchlist}
+                  zoneId="row-s1"
+                  registerZone={registerZone}
+                  unregisterZone={unregisterZone}
                 />
                 <MovieRow
                   title="Season 2: The Demon Portals (சீசன் 2: நரகத்தின் கதவுகள்)"
@@ -319,6 +346,9 @@ export default function App() {
                   onExplore={enterJackieChanHub}
                   watchlist={watchlist}
                   onToggleWatchlist={handleToggleWatchlist}
+                  zoneId="row-s2"
+                  registerZone={registerZone}
+                  unregisterZone={unregisterZone}
                 />
                 <MovieRow
                   title="Season 3: The Noble Animals (சீசன் 3: உன்னத விலங்குகள்)"
@@ -327,6 +357,9 @@ export default function App() {
                   onExplore={enterJackieChanHub}
                   watchlist={watchlist}
                   onToggleWatchlist={handleToggleWatchlist}
+                  zoneId="row-s3"
+                  registerZone={registerZone}
+                  unregisterZone={unregisterZone}
                 />
                 <MovieRow
                   title="Season 4: The Oni Masks (சீசன் 4: ஓனி முகமூடிகள்)"
@@ -335,6 +368,9 @@ export default function App() {
                   onExplore={enterJackieChanHub}
                   watchlist={watchlist}
                   onToggleWatchlist={handleToggleWatchlist}
+                  zoneId="row-s4"
+                  registerZone={registerZone}
+                  unregisterZone={unregisterZone}
                 />
                 <MovieRow
                   title="Season 5: Relics of Demons Past (சீசன் 5: அரக்கர்களின் நினைவுச்சின்னங்கள்)"
@@ -343,6 +379,9 @@ export default function App() {
                   onExplore={enterJackieChanHub}
                   watchlist={watchlist}
                   onToggleWatchlist={handleToggleWatchlist}
+                  zoneId="row-s5"
+                  registerZone={registerZone}
+                  unregisterZone={unregisterZone}
                 />
               </>
             ) : (
@@ -355,6 +394,9 @@ export default function App() {
                   onExplore={enterJackieChanHub}
                   watchlist={watchlist}
                   onToggleWatchlist={handleToggleWatchlist}
+                  zoneId="row-90s"
+                  registerZone={registerZone}
+                  unregisterZone={unregisterZone}
                 />
                 <MovieRow
                   title="Early 2000s Hits (2000ஸ் ஹிட்ஸ்)"
@@ -363,6 +405,9 @@ export default function App() {
                   onExplore={enterJackieChanHub}
                   watchlist={watchlist}
                   onToggleWatchlist={handleToggleWatchlist}
+                  zoneId="row-2000s"
+                  registerZone={registerZone}
+                  unregisterZone={unregisterZone}
                 />
                 <MovieRow
                   title="Action & Adventure (சண்டை & சாகசம்)"
@@ -371,6 +416,9 @@ export default function App() {
                   onExplore={enterJackieChanHub}
                   watchlist={watchlist}
                   onToggleWatchlist={handleToggleWatchlist}
+                  zoneId="row-action"
+                  registerZone={registerZone}
+                  unregisterZone={unregisterZone}
                 />
               </>
             )}
