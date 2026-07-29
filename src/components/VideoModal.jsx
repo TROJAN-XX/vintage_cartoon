@@ -294,17 +294,27 @@ export default function VideoModal({ cartoon, onClose, isFav, onToggleFav }) {
     if (!wrapper) return;
 
     if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-      if (wrapper.requestFullscreen) {
-        wrapper.requestFullscreen();
-      } else if (wrapper.webkitRequestFullscreen) {
-        wrapper.webkitRequestFullscreen();
-      }
+      const p = wrapper.requestFullscreen 
+        ? wrapper.requestFullscreen() 
+        : (wrapper.webkitRequestFullscreen ? wrapper.webkitRequestFullscreen() : Promise.resolve());
+      
+      Promise.resolve(p).then(() => {
+        if (screen.orientation && screen.orientation.lock) {
+          screen.orientation.lock('landscape').catch(() => {});
+        }
+      }).catch(() => {});
     } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen();
-      } else if (document.webkitExitFullscreen) {
-        document.webkitExitFullscreen();
-      }
+      const p = document.exitFullscreen 
+        ? document.exitFullscreen() 
+        : (document.webkitExitFullscreen ? document.webkitExitFullscreen() : Promise.resolve());
+      
+      Promise.resolve(p).then(() => {
+        if (screen.orientation && screen.orientation.unlock) {
+          try {
+            screen.orientation.unlock();
+          } catch (e) {}
+        }
+      }).catch(() => {});
     }
   };
 
@@ -430,11 +440,6 @@ export default function VideoModal({ cartoon, onClose, isFav, onToggleFav }) {
               </div>
 
               <div className="player-controls-group">
-                {cartoon.audioUrl && (
-                  <span className="audio-sync-badge">
-                    Tamil Audio Synced
-                  </span>
-                )}
                 <button className="player-btn" onClick={handleFullscreenToggle} aria-label="Toggle Fullscreen">
                   {isFullscreen ? <Minimize2 size={22} /> : <Maximize2 size={22} />}
                 </button>
