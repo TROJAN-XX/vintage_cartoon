@@ -6,9 +6,10 @@ import Navbar from './components/Navbar';
 import Hero from './components/Hero';
 import SearchFilter from './components/SearchFilter';
 import MovieRow from './components/MovieRow';
-import VideoModal from './components/VideoModal';
 import CustomCursor from './components/CustomCursor';
 import { useKeyboardNav } from './hooks/useKeyboardNav';
+
+const VideoModal = React.lazy(() => import('./components/VideoModal'));
 
 export default function App() {
   // Navigation context state: null (general catalog) or 'jackie-chan' (dedicated hub)
@@ -424,12 +425,14 @@ export default function App() {
 
       {/* Streaming Player Modal */}
       {activeCartoon && (
-        <VideoModal
-          cartoon={activeCartoon}
-          onClose={() => setActiveCartoon(null)}
-          isFav={watchlist.some((item) => item.id === activeCartoon.id)}
-          onToggleFav={handleToggleWatchlist}
-        />
+        <React.Suspense fallback={null}>
+          <VideoModal
+            cartoon={activeCartoon}
+            onClose={() => setActiveCartoon(null)}
+            isFav={watchlist.some((item) => item.id === activeCartoon.id)}
+            onToggleFav={handleToggleWatchlist}
+          />
+        </React.Suspense>
       )}
 
       {/* Sleek Dark Footer */}
