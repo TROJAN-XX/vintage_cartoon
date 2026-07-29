@@ -244,10 +244,6 @@ export default function App() {
   return (
     <div className="app-container">
       <CustomCursor />
-      {/* Keyboard Navigation Hint Toast */}
-      <div className="kb-hint" aria-hidden="true">
-        <span>⌨️ <kbd>↑↓</kbd> rows &nbsp; <kbd>←→</kbd> cards &nbsp; <kbd>Enter</kbd> play &nbsp; <kbd>Esc</kbd> back</span>
-      </div>
       {/* Sleek, Context-Aware Navbar */}
       <Navbar
         currentShowContext={currentShowContext}

@@ -1610,3 +1610,20 @@ button {
                 0 0 10px var(--neon-purple);
   }
 }
+
+/* ===================== Keyboard Navigation ===================== */
+
+/* Focus ring – visible only when keyboard navigating */
+.cartoon-card:focus {
+  outline: 2px solid var(--neon-cyan);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 3px rgba(0, 240, 255, 0.2),
+              0 0 20px rgba(0, 240, 255, 0.35);
+  transform: perspective(1000px) translateY(-6px) scale(1.02) !important;
+}
+
+button.nav-link:focus {
+  outline: 2px solid var(--neon-cyan);
+  outline-offset: 3px;
+  color: var(--neon-cyan);
+}
