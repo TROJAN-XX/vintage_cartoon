@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Tv, Heart, ArrowLeft } from 'lucide-react';
 
 export default function Navbar({ 
@@ -7,8 +7,23 @@ export default function Navbar({
   activeCategory, 
   setActiveCategory, 
   watchlistCount, 
-  scrollToSection 
+  scrollToSection,
+  registerZone,
+  unregisterZone,
 }) {
+  const navLinksRef = useRef(null);
+
+  // Register the nav link buttons as keyboard zone 'navbar'
+  useEffect(() => {
+    if (!registerZone) return;
+    registerZone('navbar', () => {
+      if (!navLinksRef.current) return [];
+      return Array.from(navLinksRef.current.querySelectorAll('button.nav-link'));
+    });
+    return () => {
+      if (unregisterZone) unregisterZone('navbar');
+    };
+  }, [registerZone, unregisterZone, currentShowContext]);
   
   // General view nav links
   const generalCategories = [
@@ -60,7 +75,7 @@ export default function Navbar({
         </div>
 
         {/* Dynamic Category Navigation Links */}
-        <nav className="navbar-links">
+        <nav className="navbar-links" ref={navLinksRef}>
           {currentShowContext === 'jackie-chan' ? (
             jackieCategories.map((cat) => (
               <button
