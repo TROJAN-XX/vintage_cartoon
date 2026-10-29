@@ -1,3 +1,17 @@
+# ---------------------------------------------------------------
+# Vintage Cartoon — .gitignore
+# App is a static Vite build; media is NEVER stored in this repo
+# (videos stream directly from archive.org).
+# ---------------------------------------------------------------
+
+# Dependencies
+node_modules
+
+# Build output
+dist
+dist-ssr
+*.local
+
 # Logs
 logs
 *.log
@@ -7,16 +21,36 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
+# Vercel local state (contains org/project ids — never commit)
+.vercel
+
+# Environment variables / secrets (none exist today; keep it that way)
+.env
+.env.*
+!.env.example
+
+# Test & coverage output
+coverage
+
+# Caches
+.cache
+.eslintcache
+.oxc-cache
+
+# Media files must never enter the repo (streamed from archive.org only)
+*.mp4
+*.m4a
+*.mkv
+*.webm
+*.avi
+*.mov
 
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
 .idea
 .DS_Store
+Thumbs.db
 *.suo
 *.ntvs*
 *.njsproj

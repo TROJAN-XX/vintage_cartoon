@@ -1,0 +1,80 @@
+# ============================================================================
+# Instant Vercel Deploy — GitHub Actions
+# ----------------------------------------------------------------------------
+# Deploys Vintage Cartoon to VERCEL PRODUCTION on every push to `main`,
+# and on demand via the Actions "Run workflow" button.
+#
+# One-time setup (see deployment.md §B.1) — repo Settings → Secrets and
+# variables → Actions, add:
+#   VERCEL_TOKEN        Vercel dashboard → Settings → Tokens → Create
+#   VERCEL_ORG_ID       from `.vercel/project.json` after `npx vercel link`
+#   VERCEL_PROJECT_ID   same file as above
+#
+# The app itself needs NO runtime secrets — videos stream directly from the
+# Internet Archive (archive.org) and the watchlist lives in localStorage.
+#
+# Pipeline: npm ci → lint → vite build → vercel pull → vercel build (prebuilt)
+#           → vercel deploy (instant upload to production)
+# ============================================================================
+
+name: Deploy to Vercel
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+# One production deploy at a time — a newer push cancels the older in-flight
+# deploy so the latest commit always wins.
+concurrency:
+  group: vercel-production
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies (deterministic)
+        run: npm ci
+
+      - name: Lint source
+        run: npm run lint
+
+      - name: Build production bundle
+        run: npm run build
+
+      # Fetches the project's production settings into `.vercel/` inside CI.
+      # Requires VERCEL_ORG_ID + VERCEL_PROJECT_ID (see header).
+      - name: Pull Vercel environment (production)
+        run: npx vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      # Assembles the prebuilt artifact locally (no second build on Vercel).
+      - name: Build prebuilt Vercel artifacts
+        run: npx vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      # Instant production deploy of the prebuilt artifact.
+      # The deployment URL is printed in this step's output.
+      - name: Deploy to Vercel (production)
+        run: npx vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
