@@ -9,11 +9,23 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) {
-            if (id.includes('react') || id.includes('scheduler')) {
-              return 'vendor-react';
-            }
-            if (id.includes('lucide-react') || id.includes('lucide')) {
+            // NOTE (flaw fix F5): match on path segments, not substrings.
+            // The old `id.includes('react')` also matched `lucide-react`,
+            // so `vendor-icons` was never emitted. Check lucide first,
+            // then react/react-dom/scheduler, then a generic fallback.
+            if (
+              id.includes('node_modules/lucide-react') ||
+              id.includes('node_modules\\lucide-react')
+            ) {
               return 'vendor-icons';
+            }
+            if (
+              id.includes('node_modules/react') ||
+              id.includes('node_modules\\react') ||
+              id.includes('node_modules/scheduler') ||
+              id.includes('node_modules\\scheduler')
+            ) {
+              return 'vendor-react';
             }
             return 'vendor-libs';
           }

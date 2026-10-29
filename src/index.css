@@ -773,6 +773,22 @@ button {
   justify-content: center;
   opacity: 0;
   transition: var(--transition-smooth);
+  pointer-events: none; /* decorative layer — must never block the thumbnail button */
+}
+
+/* Flaw fix F21: the poster is a real <button> layered over the wrapper —
+   the card itself is no longer a fake role="button" (no nested controls). */
+.card-thumbnail-btn {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
 }
 
 .card-thumbnail-wrapper:hover .card-overlay {
@@ -1492,14 +1508,16 @@ button {
   box-shadow: 0 10px 25px rgba(0, 240, 255, 0.25), 0 0 15px rgba(0, 240, 255, 0.15) !important;
 }
 
-/* Lazy and Slow Smooth Scroll-Driven Animations */
+/* Smooth but SNAPPY Scroll-Driven Reveal (speed-tuned) */
+/* Flaw fix (loading/perf): reduced the slow 1.8s blur+fade to a crisp 0.45s
+   entrance, so lists never feel laggy while scrolling. */
 .lazy-reveal {
   opacity: 0;
-  transition: opacity 1.8s cubic-bezier(0.16, 1, 0.3, 1),
-    transform 1.8s cubic-bezier(0.16, 1, 0.3, 1),
-    filter 1.8s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+    filter 0.45s cubic-bezier(0.16, 1, 0.3, 1);
   will-change: opacity, transform, filter;
-  filter: blur(8px);
+  filter: blur(6px);
 }
 
 .lazy-reveal.reveal-up {
@@ -1528,48 +1546,62 @@ button {
   filter: blur(0px);
 }
 
-/* Animation Delays for Staggered Effects */
+/* Animation Delays for Staggered Effects (tightened — max 0.24s) */
 .delay-100 {
-  transition-delay: 0.1s;
+  transition-delay: 0.06s;
 }
 
 .delay-200 {
-  transition-delay: 0.2s;
+  transition-delay: 0.1s;
 }
 
 .delay-300 {
-  transition-delay: 0.3s;
+  transition-delay: 0.14s;
 }
 
 .delay-400 {
-  transition-delay: 0.4s;
+  transition-delay: 0.18s;
 }
 
 .delay-500 {
-  transition-delay: 0.5s;
+  transition-delay: 0.22s;
 }
 
 .delay-600 {
-  transition-delay: 0.6s;
+  transition-delay: 0.24s;
 }
 
 .delay-700 {
-  transition-delay: 0.7s;
+  transition-delay: 0.24s;
 }
 
 .delay-800 {
-  transition-delay: 0.8s;
+  transition-delay: 0.24s;
 }
 
 .delay-900 {
-  transition-delay: 0.9s;
+  transition-delay: 0.24s;
 }
 
 /* Custom Cursor Styling */
 @media (min-width: 1025px) {
-  /* Hide standard cursor globally */
-  html, body, a, button, select, input, textarea, [role="button"], .cartoon-card {
-    cursor: none !important;
+  /* Hide native pointer ONLY while the custom cursor is mounted (flaw fix F11).
+     The `cursor-active` class is added to <html> by CustomCursor and removed
+     when it unmounts — so a JS failure can never leave users pointer-less.
+     Inputs keep the native text cursor for accessibility. */
+  html.cursor-active,
+  html.cursor-active body,
+  html.cursor-active a,
+  html.cursor-active button,
+  html.cursor-active select,
+  html.cursor-active [role="button"],
+  html.cursor-active .cartoon-card {
+    cursor: none;
+  }
+
+  html.cursor-active input,
+  html.cursor-active textarea {
+    cursor: text;
   }
 
   .custom-cursor {
@@ -1612,15 +1644,38 @@ button {
   }
 }
 
+/* Flaw fix F10: respect the OS "reduce motion" preference. All reveal
+   animations, tilt effects, and looping indicators stop when requested. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+  }
+
+  /* Show all reveal targets immediately — no scroll-dependent entrance */
+  .lazy-reveal {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
 /* ===================== Keyboard Navigation ===================== */
 
-/* Focus ring – visible only when keyboard navigating */
-.cartoon-card:focus {
+/* Focus ring – visible only when keyboard navigating. The focusable card
+   control is now the thumbnail button (flaw fix F21). */
+.card-thumbnail-btn:focus {
   outline: 2px solid var(--neon-cyan);
   outline-offset: 3px;
   box-shadow: 0 0 0 3px rgba(0, 240, 255, 0.2),
               0 0 20px rgba(0, 240, 255, 0.35);
-  transform: perspective(1000px) translateY(-6px) scale(1.02) !important;
 }
 
 button.nav-link:focus {

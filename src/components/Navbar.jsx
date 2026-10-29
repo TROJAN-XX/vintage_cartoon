@@ -4,6 +4,7 @@ import { Tv, Heart, ArrowLeft } from 'lucide-react';
 export default function Navbar({ 
   currentShowContext, 
   setCurrentShowContext, 
+  onExitHub,
   activeCategory, 
   setActiveCategory, 
   watchlistCount, 
@@ -108,13 +109,9 @@ export default function Navbar({
         {/* Action Panel */}
         <div className="navbar-actions">
           {currentShowContext === 'jackie-chan' ? (
-            <button 
-              className="reset-filters-btn-glowing" 
-              onClick={() => {
-                setCurrentShowContext(null);
-                setActiveCategory('all');
-                scrollToSection('hero');
-              }}
+            <button
+              className="reset-filters-btn-glowing"
+              onClick={onExitHub || (() => setCurrentShowContext(null))}
               style={{ display: 'flex', gap: '0.4rem', margin: 0 }}
             >
               <ArrowLeft size={14} />

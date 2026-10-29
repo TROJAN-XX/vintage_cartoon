@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, Play, Heart, Star, Shield, Compass } from 'lucide-react';
 
 export default function MovieRow({ 
@@ -16,12 +16,35 @@ export default function MovieRow({
   const rowRef = useRef(null);
   const containerRef = useRef(null);
 
+  // Flaw fix F13: disable arrow buttons when there's nothing to scroll
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const updateArrowState = useCallback(() => {
+    const el = rowRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 4);
+    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 4);
+  }, []);
+
+  useEffect(() => {
+    updateArrowState();
+    const el = rowRef.current;
+    if (!el) return;
+    el.addEventListener('scroll', updateArrowState, { passive: true });
+    window.addEventListener('resize', updateArrowState);
+    return () => {
+      el.removeEventListener('scroll', updateArrowState);
+      window.removeEventListener('resize', updateArrowState);
+    };
+  }, [updateArrowState, cartoons]);
+
   // Register this row's cards as a keyboard navigation zone
   useEffect(() => {
     if (!registerZone || !zoneId) return;
     registerZone(zoneId, () => {
       if (!containerRef.current) return [];
-      return Array.from(containerRef.current.querySelectorAll('.cartoon-card[tabindex="0"]'));
+      return Array.from(containerRef.current.querySelectorAll('.cartoon-card .card-thumbnail-btn'));
     });
     return () => {
       if (unregisterZone) unregisterZone(zoneId);
@@ -58,7 +81,7 @@ export default function MovieRow({
     return (
       <div className="movie-grid-container" ref={containerRef}>
         <h2 className="row-title-neon lazy-reveal reveal-right">{title}</h2>
-        <div className="movie-grid lazy-reveal reveal-up delay-100">
+        <div className="movie-grid lazy-reveal reveal-up" role="list">
           {cartoons.map((cartoon) => (
             <CartoonCard
               key={cartoon.id}
@@ -79,11 +102,16 @@ export default function MovieRow({
     <div className="movie-row-container lazy-reveal reveal-up" ref={containerRef}>
       <h2 className="row-title-neon lazy-reveal reveal-right delay-100">{title}</h2>
       <div className="movie-row-wrapper lazy-reveal reveal-scale delay-200">
-        <button className="row-arrow arrow-left" onClick={() => scroll('left')} aria-label="Scroll left">
+        <button
+          className={`row-arrow arrow-left ${!canScrollLeft ? 'arrow-disabled' : ''}`}
+          onClick={() => canScrollLeft && scroll('left')}
+          disabled={!canScrollLeft}
+          aria-label="Scroll left"
+        >
           <ChevronLeft />
         </button>
         
-        <div className="movie-row-scroll" ref={rowRef}>
+        <div className="movie-row-scroll" ref={rowRef} role="list">
           {cartoons.map((cartoon) => (
             <CartoonCard
               key={cartoon.id}
@@ -96,7 +124,12 @@ export default function MovieRow({
           ))}
         </div>
 
-        <button className="row-arrow arrow-right" onClick={() => scroll('right')} aria-label="Scroll right">
+        <button
+          className={`row-arrow arrow-right ${!canScrollRight ? 'arrow-disabled' : ''}`}
+          onClick={() => canScrollRight && scroll('right')}
+          disabled={!canScrollRight}
+          aria-label="Scroll right"
+        >
           <ChevronRight />
         </button>
       </div>
@@ -104,10 +137,16 @@ export default function MovieRow({
   );
 }
 
+// Flaw fix F4/F11: tilt effect is throttled — the card's bounding rect is
+// cached on mouseenter (a rect is stable while hovering), and updates are
+// gated through requestAnimationFrame instead of running per mousemove.
 function CartoonCard({ cartoon, onPlay, onExplore, isFav, onToggleFav }) {
   const cardRef = useRef(null);
   const glareRef = useRef(null);
-  
+  const rectRef = useRef(null);
+  const frameRef = useRef(0);
+  const targetRef = useRef({ x: 0, y: 0 });
+
   const isHubEntry = cartoon.isShowHubEntry;
   const isEpisode = cartoon.season !== undefined && cartoon.episode !== undefined;
 
@@ -119,34 +158,40 @@ function CartoonCard({ cartoon, onPlay, onExplore, isFav, onToggleFav }) {
     }
   };
 
-  // Keyboard: Enter/Space triggers card click
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      handleCardClick();
+  const applyTilt = () => {
+    frameRef.current = 0;
+    const card = cardRef.current;
+    const rect = rectRef.current;
+    if (!card || !rect) return;
+    const x = targetRef.current.x;
+    const y = targetRef.current.y;
+    const rotateX = -((y - rect.top - rect.height / 2) / (rect.height / 2)) * 10;
+    const rotateY = ((x - rect.left - rect.width / 2) / (rect.width / 2)) * 10;
+    card.style.transition = 'transform 0.1s cubic-bezier(0.25, 0.8, 0.25, 1)';
+    card.style.transform = `perspective(1000px) rotateX(${rotateX.toFixed(2)}deg) rotateY(${rotateY.toFixed(2)}deg) translateY(-6px) scale(1.02)`;
+    if (glareRef.current) {
+      glareRef.current.style.opacity = '0.12';
+      glareRef.current.style.background = `radial-gradient(circle at ${x - rect.left}px ${y - rect.top}px, rgba(255, 255, 255, 0.4) 0%, transparent 60%)`;
     }
   };
 
   const handleMouseMove = (e) => {
     if (!cardRef.current) return;
+    targetRef.current = { x: e.clientX, y: e.clientY };
+    if (frameRef.current) return; // one pending update is enough
+    frameRef.current = requestAnimationFrame(applyTilt);
+  };
+
+  const handleMouseEnter = () => {
     const card = cardRef.current;
-    const box = card.getBoundingClientRect();
-    const x = e.clientX - box.left;
-    const y = e.clientY - box.top;
-    
-    const rotateX = -((y - box.height / 2) / (box.height / 2)) * 10;
-    const rotateY = ((x - box.width / 2) / (box.width / 2)) * 10;
-    
-    card.style.transition = 'transform 0.1s cubic-bezier(0.25, 0.8, 0.25, 1)';
-    card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-6px) scale(1.02)`;
-    
-    if (glareRef.current) {
-      glareRef.current.style.opacity = '0.12';
-      glareRef.current.style.background = `radial-gradient(circle at ${x}px ${y}px, rgba(255, 255, 255, 0.4) 0%, transparent 60%)`;
-    }
+    if (card) rectRef.current = card.getBoundingClientRect();
   };
 
   const handleMouseLeave = () => {
+    if (frameRef.current) {
+      cancelAnimationFrame(frameRef.current);
+      frameRef.current = 0;
+    }
     if (!cardRef.current) return;
     const card = cardRef.current;
     card.style.transition = 'transform 0.6s cubic-bezier(0.16, 1, 0.3, 1)';
@@ -156,25 +201,44 @@ function CartoonCard({ cartoon, onPlay, onExplore, isFav, onToggleFav }) {
     }
   };
 
+  // Clear leftover tilt when the list changes (stale inline styles — flaw fix F15)
+  useEffect(() => {
+    const card = cardRef.current;
+    if (card && card.style.transform) {
+      card.style.transform = '';
+    }
+    return () => {
+      if (frameRef.current) cancelAnimationFrame(frameRef.current);
+    };
+  }, [cartoon.id]);
+
   return (
-    <div 
+    <article
       className={`cartoon-card ${isHubEntry ? 'hub-entry-card' : ''}`}
       ref={cardRef}
-      tabIndex={0}
-      role="button"
-      aria-label={`Play ${cartoon.title}`}
+      role="listitem"
+      onMouseEnter={handleMouseEnter}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
-      onKeyDown={handleKeyDown}
-      onClick={handleCardClick}
     >
       {/* Dynamic Glare Overlay */}
       <div className="card-glare" ref={glareRef} />
 
-      {/* Thumbnail with overlay gradient */}
+      {/* Thumbnail with overlay gradient.
+          Flaw fix F21/F22: the play affordance is now a real <button> layered
+          over the poster (the card itself is no longer a fake role="button"
+          wrapping the heart button), and its label matches the action —
+          Play for titles, Explore for hub entries. */}
       <div className="card-thumbnail-wrapper">
-        <img src={cartoon.thumbnail} alt={cartoon.title} className="card-image" loading="lazy" />
-        <div className="card-overlay">
+        <button
+          type="button"
+          className="card-thumbnail-btn"
+          onClick={handleCardClick}
+          aria-label={isHubEntry ? `Explore ${cartoon.title} selections` : `Play ${cartoon.title}`}
+        >
+          <img src={cartoon.thumbnail} alt="" className="card-image" loading="lazy" decoding="async" />
+        </button>
+        <div className="card-overlay" aria-hidden="true">
           <div className="card-play-circle">
             {isHubEntry ? (
               <Compass size={24} className="card-play-icon" />
@@ -251,6 +315,6 @@ function CartoonCard({ cartoon, onPlay, onExplore, isFav, onToggleFav }) {
           ))}
         </div>
       </div>
-    </div>
+    </article>
   );
 }

@@ -1,11 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { 
-  X, Star, Shield, Clock, Info, Heart, 
-  Play, Pause, Volume2, VolumeX, Maximize2, Minimize2, 
-  RotateCcw, RotateCw 
+import {
+  X, Star, Shield, Clock, Info, Heart, Tv, Calendar,
+  Play, Pause, Volume2, VolumeX, Maximize2, Minimize2,
+  RotateCcw, RotateCw
 } from 'lucide-react';
+import { readPlayerPrefs, writePlayerPrefs, writeProgress } from '../utils/storage';
 
-export default function VideoModal({ cartoon, onClose, isFav, onToggleFav }) {
+const PROGRESS_SAVE_INTERVAL = 5000; // ms
+const RESUME_THRESHOLD = 10; // seconds of remaining time that counts as "finished"
+
+export default function VideoModal({ cartoon, onClose, isFav, onToggleFav, resumeAt = 0, onProgressSave }) {
   const modalRef = useRef(null);
   const videoRef = useRef(null);
   const audioRef = useRef(null);
@@ -13,16 +17,27 @@ export default function VideoModal({ cartoon, onClose, isFav, onToggleFav }) {
   const controlsTimeoutRef = useRef(null);
 
   // Custom player states
-  const [isPlaying, setIsPlaying] = useState(true);
+  // Flaw fix F12: isPlaying is mirrored from real media events (play/pause),
+  // never set optimistically before playback actually starts.
+  const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [volume, setVolume] = useState(0.8);
-  const [isMuted, setIsMuted] = useState(false);
+  // Flaw fix F24: volume/mute persist across sessions
+  const prefs = readPlayerPrefs();
+  const [volume, setVolume] = useState(prefs.volume);
+  const [isMuted, setIsMuted] = useState(prefs.isMuted);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [isBuffering, setIsBuffering] = useState(false);
+  const [isBuffering, setIsBuffering] = useState(true);
   const [showControls, setShowControls] = useState(true);
+  // Flaw fix F12: user-visible error state with retry
+  const [mediaError, setMediaError] = useState(null);
+  const [retryKey, setRetryKey] = useState(0);
 
-  // Close on pressing Escape key
+  // General-catalog entries lack season/episode/talisman — branch the UI (flaw fix F1)
+  const isEpisode = cartoon.season !== undefined && cartoon.episode !== undefined;
+
+  // Close on pressing Escape key (the keyboard-nav hook skips keys while the
+  // modal is open, so this is the single Escape owner — flaw fix F6)
   useEffect(() => {
     const handleKeyDown = (event) => {
       if (event.key === 'Escape' && !document.fullscreenElement) {
@@ -30,7 +45,7 @@ export default function VideoModal({ cartoon, onClose, isFav, onToggleFav }) {
       }
     };
     window.addEventListener('keydown', handleKeyDown);
-    
+
     // Prevent background scrolling while modal is open
     document.body.style.overflow = 'hidden';
 
@@ -47,7 +62,7 @@ export default function VideoModal({ cartoon, onClose, isFav, onToggleFav }) {
       clearTimeout(controlsTimeoutRef.current);
     }
     controlsTimeoutRef.current = setTimeout(() => {
-      if (isPlaying) {
+      if (videoRef.current && !videoRef.current.paused) {
         setShowControls(false);
       }
     }, 3000);
@@ -59,7 +74,12 @@ export default function VideoModal({ cartoon, onClose, isFav, onToggleFav }) {
         clearTimeout(controlsTimeoutRef.current);
       }
     };
-  }, [isPlaying]);
+  }, []);
+
+  // Persist player preferences whenever they change (flaw fix F24)
+  useEffect(() => {
+    writePlayerPrefs({ volume, isMuted });
+  }, [volume, isMuted]);
 
   // Sync Volume & Mute state dynamically between elements
   useEffect(() => {
@@ -78,7 +98,53 @@ export default function VideoModal({ cartoon, onClose, isFav, onToggleFav }) {
       video.muted = isMuted;
       video.volume = volume;
     }
-  }, [volume, isMuted, cartoon.audioUrl]);
+  }, [volume, isMuted, cartoon.audioUrl, retryKey]);
+
+  // Resume from last watched position + save progress while watching (P2-2)
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const saveProgress = (seconds) => {
+      if (!onProgressSave) return;
+      onProgressSave(seconds);
+    };
+
+    let resumed = false;
+    const onLoadedMetadata = () => {
+      // Seek to the saved position unless the episode was watched to the end
+      if (!resumed && resumeAt > 5 && isFinite(video.duration) && resumeAt < video.duration - RESUME_THRESHOLD) {
+        video.currentTime = resumeAt;
+      }
+      resumed = true;
+    };
+    video.addEventListener('loadedmetadata', onLoadedMetadata);
+
+    // Throttled progress writes while playing
+    const intervalId = setInterval(() => {
+      const v = videoRef.current;
+      if (v && v.currentTime > 5 && isFinite(v.duration)) {
+        // Watched to (almost) the end → reset progress so it replays from the start
+        if (v.duration - v.currentTime < RESUME_THRESHOLD) {
+          writeProgress(cartoon.id, 0);
+        } else {
+          saveProgress(v.currentTime);
+        }
+      }
+    }, PROGRESS_SAVE_INTERVAL);
+
+    return () => {
+      video.removeEventListener('loadedmetadata', onLoadedMetadata);
+      clearInterval(intervalId);
+      // Final save on unmount/close — `video` is the stable DOM node mounted
+      // with this modal instance, so capturing it here is safe
+      if (video.currentTime > 5 && isFinite(video.duration)) {
+        const seconds = video.duration - video.currentTime < RESUME_THRESHOLD ? 0 : video.currentTime;
+        saveProgress(seconds);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cartoon.id, retryKey]);
 
   // Sync Video and Audio Events (Play/Pause, Buffer, seeking, drift correction)
   useEffect(() => {
@@ -102,7 +168,7 @@ export default function VideoModal({ cartoon, onClose, isFav, onToggleFav }) {
 
     const onTimeUpdate = () => {
       setCurrentTime(video.currentTime);
-      
+
       // Drift correction: if drift between video and audio is more than 0.15s, align them
       if (cartoon.audioUrl && audio) {
         const drift = Math.abs(video.currentTime - audio.currentTime);
@@ -136,6 +202,12 @@ export default function VideoModal({ cartoon, onClose, isFav, onToggleFav }) {
       }
     };
 
+    // Flaw fix F12: media load failures now surface as a retry card
+    const onError = () => {
+      setIsBuffering(false);
+      setMediaError('Could not reach the Internet Archive. The stream may be offline — please retry.');
+    };
+
     video.addEventListener('play', onPlay);
     video.addEventListener('pause', onPause);
     video.addEventListener('timeupdate', onTimeUpdate);
@@ -144,6 +216,7 @@ export default function VideoModal({ cartoon, onClose, isFav, onToggleFav }) {
     video.addEventListener('seeked', onSeeking);
     video.addEventListener('waiting', onWaiting);
     video.addEventListener('playing', onPlaying);
+    video.addEventListener('error', onError);
 
     return () => {
       video.removeEventListener('play', onPlay);
@@ -154,8 +227,9 @@ export default function VideoModal({ cartoon, onClose, isFav, onToggleFav }) {
       video.removeEventListener('seeked', onSeeking);
       video.removeEventListener('waiting', onWaiting);
       video.removeEventListener('playing', onPlaying);
+      video.removeEventListener('error', onError);
     };
-  }, [cartoon.audioUrl]);
+  }, [cartoon.audioUrl, retryKey]);
 
   // Fullscreen event listener
   useEffect(() => {
@@ -176,52 +250,6 @@ export default function VideoModal({ cartoon, onClose, isFav, onToggleFav }) {
     };
   }, []);
 
-  // Keyboard control shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (!cartoon) return;
-
-      switch (e.key.toLowerCase()) {
-        case ' ':
-          e.preventDefault();
-          handlePlayPause();
-          break;
-        case 'arrowleft':
-          e.preventDefault();
-          handleSkip(-10);
-          break;
-        case 'arrowright':
-          e.preventDefault();
-          handleSkip(10);
-          break;
-        case 'm':
-          e.preventDefault();
-          handleMuteToggle();
-          break;
-        case 'arrowup':
-          e.preventDefault();
-          setVolume(prev => Math.min(prev + 0.1, 1));
-          setIsMuted(false);
-          break;
-        case 'arrowdown':
-          e.preventDefault();
-          setVolume(prev => Math.max(prev - 0.1, 0));
-          break;
-        case 'f':
-          e.preventDefault();
-          handleFullscreenToggle();
-          break;
-        default:
-          break;
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [isPlaying, volume, isMuted, duration, cartoon]);
-
   if (!cartoon) return null;
 
   const handleBackdropClick = (e) => {
@@ -230,23 +258,24 @@ export default function VideoModal({ cartoon, onClose, isFav, onToggleFav }) {
     }
   };
 
+  // Flaw fix F12: play/pause follows the media element's actual state (source of truth)
   const handlePlayPause = () => {
     const video = videoRef.current;
-    const audio = audioRef.current;
     if (!video) return;
+    const audio = audioRef.current;
 
-    if (isPlaying) {
+    if (video.paused) {
+      video.play().catch(() => {
+        setMediaError('Playback could not start. Please try again.');
+      });
+      if (cartoon.audioUrl && audio) {
+        audio.play().catch(() => {});
+      }
+    } else {
       video.pause();
       if (cartoon.audioUrl && audio) {
         audio.pause();
       }
-      setIsPlaying(false);
-    } else {
-      video.play().catch(() => {});
-      if (cartoon.audioUrl && audio) {
-        audio.play().catch(() => {});
-      }
-      setIsPlaying(true);
     }
   };
 
@@ -294,34 +323,38 @@ export default function VideoModal({ cartoon, onClose, isFav, onToggleFav }) {
     if (!wrapper) return;
 
     if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-      const p = wrapper.requestFullscreen 
-        ? wrapper.requestFullscreen() 
+      const p = wrapper.requestFullscreen
+        ? wrapper.requestFullscreen()
         : (wrapper.webkitRequestFullscreen ? wrapper.webkitRequestFullscreen() : Promise.resolve());
-      
+
       Promise.resolve(p).then(() => {
         if (screen.orientation && screen.orientation.lock) {
           screen.orientation.lock('landscape').catch(() => {});
         }
       }).catch(() => {});
     } else {
-      const p = document.exitFullscreen 
-        ? document.exitFullscreen() 
+      const p = document.exitFullscreen
+        ? document.exitFullscreen()
         : (document.webkitExitFullscreen ? document.webkitExitFullscreen() : Promise.resolve());
-      
+
       Promise.resolve(p).then(() => {
         if (screen.orientation && screen.orientation.unlock) {
           try {
             screen.orientation.unlock();
-          } catch (e) {}
+          } catch {
+            /* not locked */
+          }
         }
       }).catch(() => {});
     }
   };
 
-  // Build video source with start time
-  const videoSrc = cartoon.startAt 
-    ? `${cartoon.videoUrl}#t=${cartoon.startAt}`
-    : cartoon.videoUrl;
+  // Flaw fix F12: retry a failed stream by remounting the media sources
+  const handleRetry = () => {
+    setMediaError(null);
+    setIsBuffering(true);
+    setRetryKey((k) => k + 1);
+  };
 
   const formatTime = (timeInSeconds) => {
     if (isNaN(timeInSeconds)) return '0:00';
@@ -333,7 +366,7 @@ export default function VideoModal({ cartoon, onClose, isFav, onToggleFav }) {
   return (
     <div className="modal-overlay" onClick={handleBackdropClick}>
       <div className="modal-container-glow" ref={modalRef}>
-        
+
         {/* Standard Modal Close Button (hidden in fullscreen mode) */}
         {!isFullscreen && (
           <button className="modal-close-btn" onClick={onClose} aria-label="Close player">
@@ -342,68 +375,87 @@ export default function VideoModal({ cartoon, onClose, isFav, onToggleFav }) {
         )}
 
         {/* Custom Video Player Wrapper */}
-        <div 
+        <div
           ref={wrapperRef}
           className={`modal-video-wrapper ${showControls ? 'controls-visible' : ''}`}
           onMouseMove={handleMouseMove}
         >
-          {/* Hidden Tamil Audio Element */}
+          {/* Hidden Tamil Audio Element — loads lazily (flaw fix F17) */}
           {cartoon.audioUrl && (
             <audio
               ref={audioRef}
               src={cartoon.audioUrl}
-              preload="auto"
+              preload="metadata"
             />
           )}
 
           {/* Video Element */}
           <video
+            key={retryKey}
             ref={videoRef}
             className="modal-video-element"
             autoPlay
             playsInline
-            src={videoSrc}
+            src={cartoon.videoUrl || undefined}
             poster={cartoon.thumbnail}
             muted={!!cartoon.audioUrl || isMuted}
           >
+            {/* Flaw fix F16: optional caption track (data field: captionsUrl) */}
+            {cartoon.captionsUrl && (
+              <track kind="captions" src={cartoon.captionsUrl} srcLang="ta" label="Tamil" default />
+            )}
             Your browser does not support the video tag.
           </video>
 
           {/* Buffering Indicator */}
-          {isBuffering && (
+          {isBuffering && !mediaError && (
             <div className="player-center-overlay">
               <div className="spinner-loader"></div>
+            </div>
+          )}
+
+          {/* Flaw fix F12: friendly retry card when the archive is unreachable */}
+          {mediaError && (
+            <div className="player-center-overlay player-error-overlay" role="alert">
+              <p className="player-error-text">{mediaError}</p>
+              <button className="player-retry-btn" onClick={handleRetry}>
+                <RotateCw size={16} />
+                <span>Retry</span>
+              </button>
             </div>
           )}
 
           {/* Top HUD Overlay (Close/Back & Title) */}
           {showControls && (
             <div className="player-top-bar">
-              <button 
-                className="player-back-btn" 
+              <button
+                className="player-back-btn"
                 onClick={isFullscreen ? handleFullscreenToggle : onClose}
               >
                 <X size={20} />
                 <span>{isFullscreen ? 'Exit Fullscreen' : 'Back'}</span>
               </button>
               <div className="player-top-title">
-                {cartoon.title} - Season {cartoon.season} Episode {cartoon.episode}
+                {cartoon.title}
+                {isEpisode ? ` - Season ${cartoon.season} Episode ${cartoon.episode}` : ''}
               </div>
             </div>
           )}
 
           {/* Bottom HUD Controls Overlay */}
           <div className="player-controls-overlay">
-            {/* Timeline Progress Slider */}
+            {/* Timeline Progress Slider (disabled until duration is known — flaw fix F18) */}
             <div className="player-progress-container">
               <span className="player-time-display">{formatTime(currentTime)}</span>
               <input
                 type="range"
                 className="player-progress-bar"
                 min={0}
-                max={duration || 100}
+                max={duration > 0 ? duration : 100}
                 value={currentTime}
                 onChange={handleSeekChange}
+                disabled={!(duration > 0)}
+                aria-label="Seek position"
               />
               <span className="player-time-display">{formatTime(duration)}</span>
             </div>
@@ -435,6 +487,7 @@ export default function VideoModal({ cartoon, onClose, isFav, onToggleFav }) {
                     step={0.05}
                     value={isMuted ? 0 : volume}
                     onChange={handleVolumeChange}
+                    aria-label="Volume"
                   />
                 </div>
               </div>
@@ -448,23 +501,38 @@ export default function VideoModal({ cartoon, onClose, isFav, onToggleFav }) {
           </div>
         </div>
 
-        {/* Video Information Metadata Area */}
+        {/* Video Information Metadata Area — context-aware (flaw fix F1) */}
         <div className="modal-info-content">
           <div className="modal-info-header">
             <div>
               <div className="modal-channel-badge-container">
-                <span className="modal-channel-badge">
-                  Season {cartoon.season}
-                </span>
-                <span className="modal-era-badge">
-                  Episode {cartoon.episode}
-                </span>
+                {isEpisode ? (
+                  <>
+                    <span className="modal-channel-badge">
+                      Season {cartoon.season}
+                    </span>
+                    <span className="modal-era-badge">
+                      Episode {cartoon.episode}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="modal-channel-badge">
+                      <Tv size={12} style={{ display: 'inline', verticalAlign: '-2px', marginRight: '4px' }} />
+                      {cartoon.channel}
+                    </span>
+                    <span className="modal-era-badge">
+                      <Calendar size={12} style={{ display: 'inline', verticalAlign: '-2px', marginRight: '4px' }} />
+                      {cartoon.year}
+                    </span>
+                  </>
+                )}
               </div>
               <h2 className="modal-title">{cartoon.title}</h2>
               <h3 className="modal-subtitle">{cartoon.tamilTitle}</h3>
             </div>
-            
-            <button 
+
+            <button
               className={`modal-fav-btn ${isFav ? 'active' : ''}`}
               onClick={() => onToggleFav(cartoon)}
             >
@@ -481,7 +549,7 @@ export default function VideoModal({ cartoon, onClose, isFav, onToggleFav }) {
             <span className="modal-meta-divider">|</span>
             <div className="modal-meta-item">
               <Shield size={16} />
-              <span>Talisman: {cartoon.talisman}</span>
+              <span>{isEpisode ? `Talisman: ${cartoon.talisman}` : `Broadcaster: ${cartoon.channel}`}</span>
             </div>
             <span className="modal-meta-divider">|</span>
             <div className="modal-meta-item">
@@ -493,7 +561,7 @@ export default function VideoModal({ cartoon, onClose, isFav, onToggleFav }) {
           <div className="modal-description-section">
             <h4 className="section-title">
               <Info size={16} className="title-icon" />
-              Episode Synopsis & Talisman Hunt
+              {isEpisode ? 'Episode Synopsis & Talisman Hunt' : 'Synopsis'}
             </h4>
             <p className="modal-description">{cartoon.description}</p>
           </div>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Filter, RefreshCw, Calendar, Tv, Shield } from 'lucide-react';
+import { Search, RefreshCw, Calendar, Tv, Shield } from 'lucide-react';
 
 export default function SearchFilter({ 
   currentShowContext,

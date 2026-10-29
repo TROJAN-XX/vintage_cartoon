@@ -1,68 +1,72 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
+
+const CLICKABLE_SELECTOR = 'a, button, select, input, textarea, [role="button"], .cartoon-card, .navbar-logo, .nav-link, .watchlist-button-pill, .watchlist-button-glowing, .play-button-glowing';
 
 export default function CustomCursor() {
-  const [position, setPosition] = useState({ x: 0, y: 0 });
-  const [hidden, setHidden] = useState(true);
+  // Flaw fix F4: the pointer dot is positioned imperatively via transform in a
+  // requestAnimationFrame loop — no React state per mousemove (previously the
+  // cursor re-rendered the whole component on every pointer event).
+  const cursorRef = useRef(null);
+  const pointerRef = useRef({ x: -100, y: -100, moved: false });
+
+  // Click/ring feedback is rare (down/up) — React state is fine for these.
   const [clicked, setClicked] = useState(false);
+
+  // Flaw fix F14 (replaces the per-element MutationObserver): a single
+  // delegated mouseover/mouseout listener decides "hovering an interactive".
   const [linkHovered, setLinkHovered] = useState(false);
 
   useEffect(() => {
-    const addEventListeners = () => {
-      document.addEventListener("mousemove", onMouseMove);
-      document.addEventListener("mouseenter", onMouseEnter);
-      document.addEventListener("mouseleave", onMouseLeave);
-      document.addEventListener("mousedown", onMouseDown);
-      document.addEventListener("mouseup", onMouseUp);
-    };
+    const el = cursorRef.current;
 
-    const removeEventListeners = () => {
-      document.removeEventListener("mousemove", onMouseMove);
-      document.removeEventListener("mouseenter", onMouseEnter);
-      document.removeEventListener("mouseleave", onMouseLeave);
-      document.removeEventListener("mousedown", onMouseDown);
-      document.removeEventListener("mouseup", onMouseUp);
+    const onFrame = () => {
+      const { x, y } = pointerRef.current;
+      if (el) {
+        el.style.transform = `translate3d(${x}px, ${y}px, 0) translate(-50%, -50%)`;
+      }
+      rafId = requestAnimationFrame(onFrame);
     };
+    let rafId = requestAnimationFrame(onFrame);
 
     const onMouseMove = (e) => {
-      setPosition({ x: e.clientX, y: e.clientY });
-      setHidden(false);
+      pointerRef.current.x = e.clientX;
+      pointerRef.current.y = e.clientY;
     };
-
-    const onMouseEnter = () => {
-      setHidden(false);
+    const onDocumentLeave = () => {
+      // Cursor leaves the window → park the dot off-screen
+      pointerRef.current.x = -100;
+      pointerRef.current.y = -100;
     };
+    document.addEventListener('mousemove', onMouseMove, { passive: true });
+    document.addEventListener('mouseleave', onDocumentLeave);
 
-    const onMouseLeave = () => {
-      setHidden(true);
-    };
-
-    const onMouseDown = () => {
-      setClicked(true);
-    };
-
-    const onMouseUp = () => {
-      setClicked(false);
-    };
-
-    addEventListeners();
-
-    // Check for interactive elements hover
-    const handleLinkHover = () => {
-      const clickables = document.querySelectorAll('a, button, select, input, textarea, [role="button"], .cartoon-card, .navbar-logo, .nav-link, .watchlist-button-pill, .watchlist-button-glowing, .play-button-glowing');
-      clickables.forEach((el) => {
-        el.addEventListener('mouseenter', () => setLinkHovered(true));
-        el.addEventListener('mouseleave', () => setLinkHovered(false));
-      });
-    };
-
-    // Run check on DOM mutations (since items filter and re-render)
-    const observer = new MutationObserver(handleLinkHover);
-    observer.observe(document.body, { childList: true, subtree: true });
-    handleLinkHover();
+    const onDown = () => setClicked(true);
+    const onUp = () => setClicked(false);
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('mouseup', onUp);
 
     return () => {
-      removeEventListeners();
-      observer.disconnect();
+      cancelAnimationFrame(rafId);
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseleave', onDocumentLeave);
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('mouseup', onUp);
+    };
+  }, []);
+
+  useEffect(() => {
+    // Delegated hover detection — O(1) per event, no listeners per node
+    const onOver = (e) => {
+      if (e.target.closest?.(CLICKABLE_SELECTOR)) setLinkHovered(true);
+    };
+    const onOut = (e) => {
+      if (e.target.closest?.(CLICKABLE_SELECTOR)) setLinkHovered(false);
+    };
+    document.addEventListener('mouseover', onOver, { passive: true });
+    document.addEventListener('mouseout', onOut, { passive: true });
+    return () => {
+      document.removeEventListener('mouseover', onOver);
+      document.removeEventListener('mouseout', onOut);
     };
   }, []);
 
@@ -77,14 +81,27 @@ export default function CustomCursor() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  if (isMobile || (hidden && !clicked)) return null;
+  // Show the custom cursor only while it's actually mounted and moving —
+  // CSS only hides the native pointer under `html.cursor-active` (flaw fix F11)
+  useEffect(() => {
+    const rootEl = document.documentElement;
+    if (isMobile) {
+      rootEl.classList.remove('cursor-active');
+      return;
+    }
+    rootEl.classList.add('cursor-active');
+    return () => rootEl.classList.remove('cursor-active');
+  }, [isMobile]);
+
+  if (isMobile) return null;
 
   return (
     <div
+      ref={cursorRef}
       className={`custom-cursor ${clicked ? 'cursor-clicked' : ''} ${linkHovered ? 'cursor-hovered' : ''}`}
       style={{
-        left: `${position.x}px`,
-        top: `${position.y}px`
+        left: 0,
+        top: 0
       }}
     />
   );
