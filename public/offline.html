@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#07070a" />
+    <title>Offline | Vintage Cartoon</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #07070a;
+        color: #eaeaf2;
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        text-align: center;
+        padding: 2rem 1rem;
+      }
+      .card { max-width: 30rem; }
+      .tv {
+        font-size: 3rem;
+        line-height: 1;
+        filter: drop-shadow(0 0 14px rgba(255, 0, 127, 0.6));
+      }
+      h1 {
+        font-size: 1.6rem;
+        letter-spacing: 0.04em;
+        margin: 1rem 0 0.4rem;
+      }
+      h1 span { color: #00f0ff; }
+      p { color: #9a9ab0; line-height: 1.6; margin: 0.4rem 0 1.6rem; }
+      button {
+        background: linear-gradient(135deg, #ff007f, #aa3bff);
+        color: #fff;
+        border: none;
+        border-radius: 999px;
+        padding: 0.8rem 1.8rem;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        box-shadow: 0 0 18px rgba(255, 0, 127, 0.5);
+      }
+      button:focus-visible { outline: 3px solid #00f0ff; outline-offset: 3px; }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <div class="tv" aria-hidden="true">📺</div>
+      <h1>No <span>signal</span> right now</h1>
+      <p>
+        You're offline and this episode isn't cached. Videos stream live from the
+        Internet Archive, so reconnect to keep watching.
+      </p>
+      <button onclick="location.reload()">Try again</button>
+    </main>
+  </body>
+</html>

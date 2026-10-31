@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <!-- Maskable PWA icon: full-bleed background + logo centered inside the
+       ~80% safe zone so OS masks never clip the artwork. -->
+  <rect width="512" height="512" fill="#07070a" />
+
+  <!-- Neon TV frame, scaled to sit within the maskable safe zone -->
+  <g transform="translate(256 266) scale(0.62) translate(-256 -256)">
+    <!-- Antennas -->
+    <path d="M190 140 L235 66" stroke="#00f0ff" stroke-width="16" stroke-linecap="round" />
+    <circle cx="235" cy="66" r="14" fill="#00f0ff" />
+    <path d="M322 140 L277 66" stroke="#00f0ff" stroke-width="16" stroke-linecap="round" />
+    <circle cx="277" cy="66" r="14" fill="#00f0ff" />
+
+    <!-- TV outer frame -->
+    <rect x="64" y="130" width="384" height="310" rx="40" stroke="#ff007f" stroke-width="20" fill="#0c0c12" />
+    <!-- Screen -->
+    <rect x="94" y="160" width="256" height="250" rx="24" fill="#12121c" stroke="#1f1f2e" stroke-width="4" />
+    <!-- Play action -->
+    <polygon points="194,235 194,335 280,285" fill="#00f0ff" />
+    <!-- Dials -->
+    <circle cx="394" cy="204" r="20" fill="#161622" stroke="#ff007f" stroke-width="6" />
+    <circle cx="394" cy="274" r="20" fill="#161622" stroke="#ff007f" stroke-width="6" />
+  </g>
+</svg>
