@@ -1,0 +1,49 @@
+# ============================================================================
+# PR CI Gate — lint + build on every pull request
+# ----------------------------------------------------------------------------
+# deploy.yaml only runs on push to `main` (it deploys). This workflow is the
+# missing PR check: it validates every pull request BEFORE merge so `main`
+# stays always-deployable (pendingworks.md P3-1).
+#
+# It does NOT deploy — it only builds. Vercel's Git integration still creates
+# a preview deployment per PR on its own.
+# ============================================================================
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Lint & Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies (deterministic)
+        run: npm ci
+
+      - name: Lint source
+        run: npm run lint
+
+      - name: Build production bundle
+        run: npm run build
+
+      - name: Run tests
+        run: npm run test:run
