@@ -832,6 +832,24 @@ button {
   box-shadow: 0 0 8px rgba(0, 240, 255, 0.2);
 }
 
+/* P1-1: visible honesty label for cards that stream a stand-in public-domain
+   reel instead of the advertised show. Amber so it reads as "warning", not
+   decoration, and sits top-right away from the channel badge. */
+.card-placeholder-badge {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  background: rgba(20, 12, 0, 0.9);
+  border: 1px solid rgba(255, 176, 32, 0.6);
+  color: #ffb020;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  box-shadow: 0 0 8px rgba(255, 176, 32, 0.25);
+}
+
 .card-details {
   padding: 1rem;
   display: flex;

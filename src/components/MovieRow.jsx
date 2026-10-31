@@ -272,6 +272,17 @@ function CartoonCard({ cartoon, onPlay, onExplore, isFav, onToggleFav }) {
             cartoon.channel
           )}
         </span>
+
+        {/* P1-1: honest label when the card streams a stand-in reel rather than
+            the advertised show (no genuine full episode exists on archive.org). */}
+        {cartoon.isPlaceholder && (
+          <span
+            className="card-placeholder-badge"
+            title="This card streams a public-domain placeholder reel, not the advertised show."
+          >
+            PLACEHOLDER REEL
+          </span>
+        )}
       </div>
 
       {/* Card Info details */}
