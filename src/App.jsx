@@ -12,6 +12,39 @@ import { readWatchlistIds, writeWatchlistIds, readProgressMap, writeProgress } f
 
 const VideoModal = React.lazy(() => import('./components/VideoModal'));
 
+// ---------------------------------------------------------------------------
+// P2-1 deep linking (hash routes — no router dependency; the server always
+// serves index.html, and the hash never reaches it, so refresh + share work
+// on any static host).  Formats:
+//   #/                          → general catalog, no modal
+//   #/watch/<id>                → catalog + open modal for <id>
+//   #/show/jackie-chan           → Jackie Chan hub, no modal
+//   #/show/jackie-chan/<id>      → hub + open episode <id>
+// ---------------------------------------------------------------------------
+function parseRoute(hash) {
+  const raw = String(hash || '').replace(/^#\/?/, '');
+  const parts = raw.split('/').filter(Boolean);
+  if (parts[0] === 'show' && parts[1] === 'jackie-chan') {
+    return { context: 'jackie-chan', watchId: parts[2] ? decodeURIComponent(parts[2]) : null };
+  }
+  if (parts[0] === 'watch' && parts[1]) {
+    return { context: null, watchId: decodeURIComponent(parts[1]) };
+  }
+  if (parts.length === 1 && parts[0]) {
+    // Bare id (e.g. #/s1e05) — resolve against whichever catalog is active.
+    return { context: null, watchId: decodeURIComponent(parts[0]) };
+  }
+  return { context: null, watchId: null };
+}
+
+function serializeRoute(context, watchId) {
+  const enc = watchId ? encodeURIComponent(watchId) : null;
+  if (context === 'jackie-chan') {
+    return enc ? `#/show/jackie-chan/${enc}` : '#/show/jackie-chan';
+  }
+  return enc ? `#/watch/${enc}` : '#/';
+}
+
 export default function App() {
   // Watchlist persisted state (id strings only — flaw fix F8)
   const [watchlistIds, setWatchlistIds] = useState(() => {
@@ -41,12 +74,43 @@ export default function App() {
   const [activeCategory, setActiveCategory] = useState('all');
 
   // Navigation context state: null (general catalog) or 'jackie-chan' (dedicated hub)
-  const [currentShowContext, setCurrentShowContext] = useState(null);
+  // Seeded from the URL so a shared deep link lands in the right context on refresh (P2-1).
+  const [currentShowContext, setCurrentShowContext] = useState(
+    () => parseRoute(typeof window !== 'undefined' ? window.location.hash : '').context
+  );
+
+  // Id requested by the current hash — resolved to a catalog object (and opened)
+  // once its data is available (hub episodes wait for the lazy JSON load).
+  const [routeWatchId, setRouteWatchId] = useState(
+    () => parseRoute(typeof window !== 'undefined' ? window.location.hash : '').watchId
+  );
+
+  // Helper: write the current route to the URL without adding a history entry.
+  const replaceRoute = (context, watchId) => {
+    const target = serializeRoute(context, watchId);
+    const current = window.location.hash || '#/';
+    if (current === target) return;
+    window.history.replaceState(null, '', target);
+  };
+
+  // Helper: user-driven context switch (keeps the URL shareable, replaces history).
+  const changeContext = (nextContext) => {
+    setCurrentShowContext(nextContext);
+    replaceRoute(nextContext, activeCartoon?.id ?? routeWatchId ?? null);
+  };
+
+  // Helper: close the modal and normalize the URL (replace, so back-button
+  // history isn't polluted with open/close churn).
+  const closeModal = () => {
+    setActiveCartoon(null);
+    setRouteWatchId(null);
+    replaceRoute(currentShowContext, null);
+  };
 
   // Keyboard navigation, wired to real modal state (flaw fix F6)
   const { registerZone, unregisterZone } = useKeyboardNav({
     modalOpen: !!activeCartoon,
-    onCloseModal: () => setActiveCartoon(null),
+    onCloseModal: () => closeModal(),
   });
 
   // Hub episode database — lazy-loaded on first entry (flaw fix F9)
@@ -69,6 +133,40 @@ export default function App() {
       cancelled = true;
     };
   }, [currentShowContext, jackieChanData]);
+
+  // P2-1: reconcile state whenever the URL hash changes (back/forward, manual
+  // edit, or a hash pushed by an open action). Reads only — never writes back.
+  useEffect(() => {
+    const reconcile = () => {
+      const route = parseRoute(window.location.hash);
+      setCurrentShowContext(route.context);
+      if (route.watchId) {
+        setRouteWatchId(route.watchId);
+      } else {
+        setRouteWatchId(null);
+        // No modal target in the URL → close any open modal (browser back).
+        setActiveCartoon((current) => (current ? null : current));
+      }
+    };
+    window.addEventListener('hashchange', reconcile);
+    return () => window.removeEventListener('hashchange', reconcile);
+  }, []);
+
+  // P2-1: resolve the requested watch id into a catalog object and open it.
+  // Hub episodes wait for the lazily-loaded JSON; general entries resolve immediately.
+  useEffect(() => {
+    if (!routeWatchId) return;
+    if (currentShowContext === 'jackie-chan') {
+      if (!jackieChanData) return; // wait for the lazy load to finish
+      const episode = jackieChanData.find((c) => c.id === routeWatchId);
+      if (episode) setActiveCartoon(episode);
+      setRouteWatchId(null);
+    } else {
+      const entry = cartoonsData.find((c) => c.id === routeWatchId);
+      if (entry) setActiveCartoon(entry);
+      setRouteWatchId(null);
+    }
+  }, [routeWatchId, currentShowContext, jackieChanData]);
 
   // Persist watchlist (ids) to localStorage
   useEffect(() => {
@@ -103,6 +201,9 @@ export default function App() {
   const handlePlay = (cartoon) => {
     if (!cartoon?.videoUrl && !cartoon?.audioUrl) return;
     setActiveCartoon(cartoon);
+    // Push a shareable deep link so the browser back button closes the modal (P2-1).
+    const target = serializeRoute(currentShowContext, cartoon.id);
+    if ((window.location.hash || '#/') !== target) window.location.hash = target;
   };
 
   // Clear filters
@@ -124,12 +225,12 @@ export default function App() {
   };
 
   const enterJackieChanHub = () => {
-    setCurrentShowContext('jackie-chan');
+    changeContext('jackie-chan');
     setTimeout(() => scrollToSection('hero'), 50);
   };
 
   const leaveJackieChanHub = () => {
-    setCurrentShowContext(null);
+    changeContext(null);
     setTimeout(() => scrollToSection('hero'), 50);
   };
 
@@ -311,7 +412,7 @@ export default function App() {
       {/* Sleek, Context-Aware Navbar */}
       <Navbar
         currentShowContext={currentShowContext}
-        setCurrentShowContext={setCurrentShowContext}
+        setCurrentShowContext={changeContext}
         onExitHub={leaveJackieChanHub}
         activeCategory={activeCategory}
         setActiveCategory={setActiveCategory}
@@ -499,7 +600,7 @@ export default function App() {
         <React.Suspense fallback={null}>
           <VideoModal
             cartoon={activeCartoon}
-            onClose={() => setActiveCartoon(null)}
+            onClose={() => closeModal()}
             isFav={watchlist.some((item) => item.id === activeCartoon.id)}
             onToggleFav={handleToggleWatchlist}
             resumeAt={progressMapRef.current[activeCartoon.id] || 0}
