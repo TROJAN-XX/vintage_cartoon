@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Static sitemap for Vintage Cartoon (pendingworks.md P3-3).
+     The app is a single-page app, so there is only one real route today.
+     Deep links (hash routes like #/show/jackie-chan/s1e05) are client-side
+     and not separately indexed — the homepage is the single crawl target. -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://vintage-cartoon.vercel.app/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+</urlset>

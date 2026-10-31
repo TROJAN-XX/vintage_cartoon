@@ -236,7 +236,21 @@ function CartoonCard({ cartoon, onPlay, onExplore, isFav, onToggleFav }) {
           onClick={handleCardClick}
           aria-label={isHubEntry ? `Explore ${cartoon.title} selections` : `Play ${cartoon.title}`}
         >
-          <img src={cartoon.thumbnail} alt="" className="card-image" loading="lazy" decoding="async" />
+          <img
+            src={cartoon.thumbnail}
+            alt=""
+            className="card-image"
+            loading="lazy"
+            decoding="async"
+            // P3-10: broken thumbnails fall back to the shared placeholder
+            // instead of the browser's default broken-image icon.
+            onError={(e) => {
+              const img = e.currentTarget;
+              if (img.dataset.fallback) return;
+              img.dataset.fallback = '1';
+              img.src = '/thumb-placeholder.svg';
+            }}
+          />
         </button>
         <div className="card-overlay" aria-hidden="true">
           <div className="card-play-circle">
@@ -258,6 +272,17 @@ function CartoonCard({ cartoon, onPlay, onExplore, isFav, onToggleFav }) {
             cartoon.channel
           )}
         </span>
+
+        {/* P1-1: honest label when the card streams a stand-in reel rather than
+            the advertised show (no genuine full episode exists on archive.org). */}
+        {cartoon.isPlaceholder && (
+          <span
+            className="card-placeholder-badge"
+            title="This card streams a public-domain placeholder reel, not the advertised show."
+          >
+            PLACEHOLDER REEL
+          </span>
+        )}
       </div>
 
       {/* Card Info details */}

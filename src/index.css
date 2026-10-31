@@ -832,6 +832,24 @@ button {
   box-shadow: 0 0 8px rgba(0, 240, 255, 0.2);
 }
 
+/* P1-1: visible honesty label for cards that stream a stand-in public-domain
+   reel instead of the advertised show. Amber so it reads as "warning", not
+   decoration, and sits top-right away from the channel badge. */
+.card-placeholder-badge {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  background: rgba(20, 12, 0, 0.9);
+  border: 1px solid rgba(255, 176, 32, 0.6);
+  color: #ffb020;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  box-shadow: 0 0 8px rgba(255, 176, 32, 0.25);
+}
+
 .card-details {
   padding: 1rem;
   display: flex;
@@ -1937,4 +1955,292 @@ button.nav-link:focus {
   width: 100% !important;
   height: 100% !important;
 }
+
+/* ============================================================================
+   P4 — Visual identity: brand loader, glassmorphism, transition polish
+   (pendingworks.md P4-1 / P4-2 / P4-3)
+   ============================================================================ */
+
+/* ---------- P4-3: reusable brand loader (async surfaces) ---------- */
+
+/* Compact standalone instance (Suspense fallback, hub loading state). */
+.brand-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.brand-loader-stage {
+  position: relative;
+  width: 104px;
+  height: 104px;
+}
+
+.brand-loader-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, #ff007f, #bd00ff, #00f0ff, #ff007f);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+  animation: brandSpin 1.1s linear infinite;
+  filter: drop-shadow(0 0 10px rgba(255, 0, 128, 0.45));
+}
+
+.brand-loader-tv {
+  position: absolute;
+  inset: 14px;
+  animation: brandFloat 2.6s ease-in-out infinite;
+  filter: drop-shadow(0 0 12px rgba(0, 240, 255, 0.35));
+}
+
+.brand-loader-screen {
+  animation: brandFlicker 2.2s ease-in-out infinite;
+}
+
+.brand-loader-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  animation: brandBreathe 1.8s ease-in-out infinite;
+}
+
+/* Suspense fallback: floats centered over the still-visible page. */
+.brand-loader-md {
+  position: fixed;
+  inset: 0;
+  z-index: 2050;
+  background: rgba(7, 7, 10, 0.45);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: brandBackdropIn 0.3s ease forwards;
+}
+
+@keyframes brandBackdropIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes brandSpin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes brandFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+@keyframes brandFlicker {
+  0%, 100% { opacity: 1; }
+  45% { opacity: 0.6; }
+  55% { opacity: 1; }
+}
+
+@keyframes brandBreathe {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+/* ---------- P4-1: glassmorphism surfaces ---------- */
+
+/* Frosted panel recipe: translucent fill + blur + 1px light edge. Reused via
+   the .glass-panel utility and applied inline to key surfaces below. */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06),
+              0 8px 32px rgba(0, 0, 0, 0.35);
+}
+
+/* Navbar: deepen the existing blur with saturation + a light top edge. */
+.navbar-container {
+  background: rgba(9, 9, 13, 0.72);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* Search input: frosted field with a brighter focus glow. */
+.search-bar-input {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.search-bar-input:focus {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(0, 240, 255, 0.6);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07),
+              0 0 18px rgba(0, 240, 255, 0.25);
+}
+
+/* Filter pills: translucent glass chips. */
+.filter-pill {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.filter-pill:hover {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.filter-pill.active {
+  background: rgba(0, 240, 255, 0.12);
+  border-color: rgba(0, 240, 255, 0.55);
+  color: var(--neon-cyan);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08),
+              0 0 14px rgba(0, 240, 255, 0.25);
+}
+
+/* Talisman/channel select: match the glass pills. */
+.talisman-select-neon {
+  background-color: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Modal shell: translucent glass panel over the blurred overlay. */
+.modal-container-glow {
+  background: rgba(11, 11, 16, 0.72);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  border-color: rgba(189, 0, 255, 0.4);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07),
+              0 0 35px rgba(189, 0, 255, 0.35),
+              0 0 15px rgba(0, 240, 255, 0.2);
+}
+
+/* Footer: subtle frosted strip over the page. */
+.footer-container {
+  background: rgba(5, 5, 7, 0.72);
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+  border-top-color: rgba(189, 0, 255, 0.22);
+}
+
+/* Hero badges: frosted chips over the backdrop image. */
+.meta-badge {
+  background: rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+/* ---------- P4-2: transition + animation polish ---------- */
+
+/* Smoother default easing on interactive cards. */
+.cartoon-card {
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.4s ease,
+              box-shadow 0.4s ease,
+              background 0.4s ease;
+}
+
+/* Lift + glow on hover (complements the JS tilt via translateY). */
+.cartoon-card:hover {
+  transform: translateY(-6px);
+  border-color: rgba(189, 0, 255, 0.6);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.5),
+              0 0 24px rgba(189, 0, 255, 0.3);
+}
+
+/* Play circle: gentle idle pulse + scale-in on hover. */
+.card-play-circle {
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.35s ease;
+  animation: playPulse 2.4s ease-in-out infinite;
+}
+
+.card-thumbnail-wrapper:hover .card-play-circle {
+  animation: none;
+  transform: scale(1.12);
+  box-shadow: 0 0 28px var(--neon-cyan);
+}
+
+@keyframes playPulse {
+  0%, 100% { box-shadow: 0 0 15px rgba(0, 240, 255, 0.35); }
+  50% { box-shadow: 0 0 24px rgba(0, 240, 255, 0.6); }
+}
+
+/* Nav links: smoother color + glow transition. */
+.nav-link {
+  transition: color 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+              text-shadow 0.3s ease;
+}
+
+/* Buttons: springy hover lift on the glowing CTAs. */
+.play-button-glowing,
+.watchlist-button-glowing,
+.watchlist-button-pill,
+.reset-filters-btn-glowing {
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.3s ease,
+              background 0.3s ease,
+              border-color 0.3s ease,
+              color 0.3s ease;
+}
+
+.play-button-glowing:hover,
+.watchlist-button-glowing:hover,
+.reset-filters-btn-glowing:hover {
+  transform: translateY(-3px) scale(1.02);
+}
+
+/* Row title: subtle neon breathe on scroll-into-view reveal. */
+.row-title-neon {
+  transition: text-shadow 0.4s ease;
+}
+
+.movie-row-container:hover .row-title-neon {
+  text-shadow: 0 0 14px rgba(0, 240, 255, 0.55);
+}
+
+/* Hero backdrop: slow ken-burns drift for cinematic life. */
+.hero-backdrop {
+  animation: heroDrift 26s ease-in-out infinite alternate;
+}
+
+@keyframes heroDrift {
+  from { transform: scale(1) translateX(0); }
+  to { transform: scale(1.06) translateX(-1.5%); }
+}
+
+/* Smooth scroll for anchor jumps. */
+html {
+  scroll-behavior: smooth;
+}
+
+/* All P4 animations are neutralized under reduced-motion via the global
+   block above; this explicit block guards the new classes too. */
+@media (prefers-reduced-motion: reduce) {
+  .brand-loader-ring,
+  .brand-loader-tv,
+  .brand-loader-screen,
+  .brand-loader-label,
+  .cartoon-card,
+  .card-play-circle,
+  .hero-backdrop,
+  html {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .cartoon-card:hover {
+    transform: none;
+  }
+}
+
 
