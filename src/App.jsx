@@ -6,6 +6,7 @@ import Hero from './components/Hero';
 import SearchFilter from './components/SearchFilter';
 import MovieRow from './components/MovieRow';
 import CustomCursor from './components/CustomCursor';
+import Loader from './components/Loader';
 import { useKeyboardNav } from './hooks/useKeyboardNav';
 import { useDebouncedValue } from './hooks/useDebouncedValue';
 import { readWatchlistIds, writeWatchlistIds, readProgressMap, writeProgress } from './utils/storage';
@@ -112,6 +113,25 @@ export default function App() {
     modalOpen: !!activeCartoon,
     onCloseModal: () => closeModal(),
   });
+
+  // P4-3: fade out + remove the first-paint brand loader once React has
+  // actually mounted (this effect runs after the first commit). The double
+  // rAF ensures the app has painted underneath before the fade starts.
+  useEffect(() => {
+    const loader = document.getElementById('page-loader');
+    if (!loader) return;
+    const raf2 = requestAnimationFrame(() => {
+      loader.classList.add('page-loader--hidden');
+      loader.addEventListener(
+        'transitionend',
+        () => loader.remove(),
+        { once: true }
+      );
+      // Fallback removal in case transitionend never fires (e.g. reduced motion).
+      setTimeout(() => loader.remove(), 900);
+    });
+    return () => cancelAnimationFrame(raf2);
+  }, []);
 
   // Hub episode database — lazy-loaded on first entry (flaw fix F9)
   const [jackieChanData, setJackieChanData] = useState(null);
@@ -459,8 +479,7 @@ export default function App() {
       <main key={currentShowContext || 'general'} className="main-content-area" id="categories">
         {currentShowContext === 'jackie-chan' && episodesLoading && (
           <div className="episodes-loading lazy-reveal" role="status">
-            <div className="spinner-loader"></div>
-            <p>Opening the archive…</p>
+            <Loader label="Opening the archive…" />
           </div>
         )}
 
@@ -597,7 +616,7 @@ export default function App() {
 
       {/* Streaming Player Modal */}
       {activeCartoon && (
-        <React.Suspense fallback={null}>
+        <React.Suspense fallback={<Loader label="Waking up the player…" />}>
           <VideoModal
             cartoon={activeCartoon}
             onClose={() => closeModal()}
