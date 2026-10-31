@@ -1,0 +1,6 @@
+# Vintage Cartoon — robots.txt (pendingworks.md P3-3)
+# Allow full crawling; point crawlers at the sitemap.
+User-agent: *
+Allow: /
+
+Sitemap: https://vintage-cartoon.vercel.app/sitemap.xml
