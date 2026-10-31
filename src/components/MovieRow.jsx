@@ -236,7 +236,21 @@ function CartoonCard({ cartoon, onPlay, onExplore, isFav, onToggleFav }) {
           onClick={handleCardClick}
           aria-label={isHubEntry ? `Explore ${cartoon.title} selections` : `Play ${cartoon.title}`}
         >
-          <img src={cartoon.thumbnail} alt="" className="card-image" loading="lazy" decoding="async" />
+          <img
+            src={cartoon.thumbnail}
+            alt=""
+            className="card-image"
+            loading="lazy"
+            decoding="async"
+            // P3-10: broken thumbnails fall back to the shared placeholder
+            // instead of the browser's default broken-image icon.
+            onError={(e) => {
+              const img = e.currentTarget;
+              if (img.dataset.fallback) return;
+              img.dataset.fallback = '1';
+              img.src = '/thumb-placeholder.svg';
+            }}
+          />
         </button>
         <div className="card-overlay" aria-hidden="true">
           <div className="card-play-circle">

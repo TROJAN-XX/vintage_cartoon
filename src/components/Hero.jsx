@@ -1,7 +1,27 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Play, Heart, Star, Calendar, Clock, Tv, Compass } from 'lucide-react';
 
 export default function Hero({ featuredCartoon, onPlay, onExplore, isInWatchlist, onToggleWatchlist }) {
+  // P3-10: probe the backdrop image off-screen and swap to the shared
+  // placeholder if it fails (CSS backgrounds show no broken-image icon,
+  // so we detect failure manually to keep the hero looking intentional).
+  const backdropSrc = featuredCartoon?.thumbnail;
+  const [resolvedBackdrop, setResolvedBackdrop] = useState(backdropSrc);
+
+  useEffect(() => {
+    setResolvedBackdrop(backdropSrc);
+    if (!backdropSrc) return;
+    let cancelled = false;
+    const probe = new Image();
+    probe.onerror = () => {
+      if (!cancelled) setResolvedBackdrop('/thumb-placeholder.svg');
+    };
+    probe.src = backdropSrc;
+    return () => {
+      cancelled = true;
+    };
+  }, [backdropSrc]);
+
   if (!featuredCartoon) return null;
 
   const isHubEntry = featuredCartoon.isShowHubEntry;
@@ -9,9 +29,9 @@ export default function Hero({ featuredCartoon, onPlay, onExplore, isInWatchlist
   return (
     <section className="hero-section" id="hero">
       {/* Background Cinematic Image with Gradient Overlay */}
-      <div 
+      <div
         className="hero-backdrop"
-        style={{ backgroundImage: `url(${featuredCartoon.thumbnail})` }}
+        style={{ backgroundImage: `url(${resolvedBackdrop})` }}
       >
         <div className="hero-vignette" />
         <div className="hero-bottom-fade" />
