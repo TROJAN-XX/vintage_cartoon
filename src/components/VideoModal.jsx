@@ -437,7 +437,11 @@ export default function VideoModal({ cartoon, onClose, isFav, onToggleFav, resum
               </button>
               <div className="player-top-title">
                 {cartoon.title}
-                {isEpisode ? ` - Season ${cartoon.season} Episode ${cartoon.episode}` : ''}
+                {isEpisode
+                  ? (cartoon.seasonLabel
+                      ? ` - ${cartoon.seasonLabel} • Episode ${cartoon.episode}`
+                      : ` - Season ${cartoon.season} Episode ${cartoon.episode}`)
+                  : ''}
               </div>
             </div>
           )}
@@ -509,7 +513,7 @@ export default function VideoModal({ cartoon, onClose, isFav, onToggleFav, resum
                 {isEpisode ? (
                   <>
                     <span className="modal-channel-badge">
-                      Season {cartoon.season}
+                      {cartoon.seasonLabel || `Season ${cartoon.season}`}
                     </span>
                     <span className="modal-era-badge">
                       Episode {cartoon.episode}
@@ -529,7 +533,9 @@ export default function VideoModal({ cartoon, onClose, isFav, onToggleFav, resum
                 )}
               </div>
               <h2 className="modal-title">{cartoon.title}</h2>
-              <h3 className="modal-subtitle">{cartoon.tamilTitle}</h3>
+              {cartoon.tamilTitle && (
+                <h3 className="modal-subtitle">{cartoon.tamilTitle}</h3>
+              )}
             </div>
 
             <button
@@ -547,10 +553,20 @@ export default function VideoModal({ cartoon, onClose, isFav, onToggleFav, resum
               <span>{cartoon.rating} Rating</span>
             </div>
             <span className="modal-meta-divider">|</span>
-            <div className="modal-meta-item">
-              <Shield size={16} />
-              <span>{isEpisode ? `Talisman: ${cartoon.talisman}` : `Broadcaster: ${cartoon.channel}`}</span>
-            </div>
+            {(isEpisode && cartoon.talisman
+              ? `Talisman: ${cartoon.talisman}`
+              : cartoon.channel
+                ? `Broadcaster: ${cartoon.channel}`
+                : null) && (
+              <div className="modal-meta-item">
+                <Shield size={16} />
+                <span>
+                  {isEpisode && cartoon.talisman
+                    ? `Talisman: ${cartoon.talisman}`
+                    : `Broadcaster: ${cartoon.channel}`}
+                </span>
+              </div>
+            )}
             <span className="modal-meta-divider">|</span>
             <div className="modal-meta-item">
               <Clock size={16} />
@@ -561,7 +577,9 @@ export default function VideoModal({ cartoon, onClose, isFav, onToggleFav, resum
           <div className="modal-description-section">
             <h4 className="section-title">
               <Info size={16} className="title-icon" />
-              {isEpisode ? 'Episode Synopsis & Talisman Hunt' : 'Synopsis'}
+              {isEpisode
+                ? (cartoon.talisman ? 'Episode Synopsis & Talisman Hunt' : 'Episode Synopsis')
+                : 'Synopsis'}
             </h4>
             <p className="modal-description">{cartoon.description}</p>
           </div>

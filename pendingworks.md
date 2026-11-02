@@ -71,6 +71,14 @@ Single source of truth for **open work**. Every task must be claimed and updated
 
 ---
 
+## 🔵 P5 — Content expansion (hub track)
+
+| # | Task | Why it matters | Status | Owner | Acceptance criteria |
+|---|------|----------------|--------|-------|---------------------|
+| P5-1 | **Tom & Jerry hub (240 episodes)** — analyze the archive.org collection (dedupe, sort by episode), generate `src/data/tom_jerry.json` with Tamil titles, and integrate as a second season-wise hub alongside Jackie Chan | Biggest single content drop; proves the hub system generalizes | ✅ done | sweep | 240 unique episodes (0 dup titles/numbers), era "seasons" (1940s/1950s/1960s/Tales) via `seasonLabel`, all URLs percent-encoded + ranged-GET verified, hub registry `src/data/hubs.js` introduced (App/Navbar/SearchFilter generalized off hardcoded `'jackie-chan'`), `tom-jerry` catalog card → second hub entry; lint/build/tests green; browser-verified (hub rows, era pills, search, playback, deep link `#/show/tom-jerry/tj-057`, Jackie regression intact) |
+
+---
+
 ## 📌 Standing / recurring duties (every PR)
 
 - [ ] Update the relevant row above (status + PR #) in the **same PR**.
@@ -95,6 +103,7 @@ Single source of truth for **open work**. Every task must be claimed and updated
 | 2026-10-30 | P2-1: hash-based deep links (`#/watch/<id>`, `#/show/jackie-chan/<ep>`) with back/forward modal control — browser-verified |
 | 2026-10-30 | Content sweep (P1-1/P1-2/P1-5): 10/11 shows mapped to genuine archive.org items (HEAD-verified); `codename-knd` = honest placeholder + visible badge; **6 old fallback items were dead on archive.org** (404 streams) — replaced; `popeye-customers-wanted` (31s clip) and `betty-boop-red-hot-mamma` (17s clip) swapped for full-length items; 6 durations corrected; Gulliver switched 6.6 GB master → 411 MB derivative; 0 Unsplash thumbs remain. `year` fields keep broadcast-era semantics (era-filter alignment) — deliberate decision |
 | 2026-11-01 | Visual-identity sweep (P4-1/P4-2/P4-3): glassmorphism pass (navbar, search, filter pills, select, modal shell, footer, hero badges + `.glass-panel` utility); transition/animation polish (card lift, springy easing, `heroDrift` ken-burns, `playPulse`, smooth scroll); branded first-paint page loader (inline critical CSS in `index.html`, neon TV + conic ring, fades out on React mount) + reusable `Loader.jsx` for VideoModal Suspense + hub episodes. All new motion honors `prefers-reduced-motion`; browser-verified (loader dismisses, glass surfaces render, playback intact) |
+| 2026-11-02 | P5-1: Tom & Jerry hub — 240 archive.org episodes analyzed (deduped, episode-sorted, Tamil-transliterated) into `src/data/tom_jerry.json`; introduced hub registry `src/data/hubs.js` and generalized App/Navbar/SearchFilter/MovieRow/Hero/VideoModal off hardcoded `'jackie-chan'` (config-driven rows, nav pills, filters, `seasonLabel` display overrides); `tom-jerry` catalog card flipped to second `isShowHubEntry` card; docs updated (`features.md` §1.2/§2/§9, `AGENTS.md` repo map) |
 
 ---
 

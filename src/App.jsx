@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import cartoonsData from './data/cartoons.json';
+import { HUBS } from './data/hubs';
 
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
@@ -19,14 +20,14 @@ const VideoModal = React.lazy(() => import('./components/VideoModal'));
 // on any static host).  Formats:
 //   #/                          → general catalog, no modal
 //   #/watch/<id>                → catalog + open modal for <id>
-//   #/show/jackie-chan           → Jackie Chan hub, no modal
-//   #/show/jackie-chan/<id>      → hub + open episode <id>
+//   #/show/<hub>                → dedicated show hub (see src/data/hubs.js)
+//   #/show/<hub>/<id>           → hub + open episode <id>
 // ---------------------------------------------------------------------------
 function parseRoute(hash) {
   const raw = String(hash || '').replace(/^#\/?/, '');
   const parts = raw.split('/').filter(Boolean);
-  if (parts[0] === 'show' && parts[1] === 'jackie-chan') {
-    return { context: 'jackie-chan', watchId: parts[2] ? decodeURIComponent(parts[2]) : null };
+  if (parts[0] === 'show' && HUBS[parts[1]]) {
+    return { context: parts[1], watchId: parts[2] ? decodeURIComponent(parts[2]) : null };
   }
   if (parts[0] === 'watch' && parts[1]) {
     return { context: null, watchId: decodeURIComponent(parts[1]) };
@@ -40,8 +41,8 @@ function parseRoute(hash) {
 
 function serializeRoute(context, watchId) {
   const enc = watchId ? encodeURIComponent(watchId) : null;
-  if (context === 'jackie-chan') {
-    return enc ? `#/show/jackie-chan/${enc}` : '#/show/jackie-chan';
+  if (context && HUBS[context]) {
+    return enc ? `#/show/${context}/${enc}` : `#/show/${context}`;
   }
   return enc ? `#/watch/${enc}` : '#/';
 }
@@ -74,7 +75,7 @@ export default function App() {
   // Navbar navigation category filter
   const [activeCategory, setActiveCategory] = useState('all');
 
-  // Navigation context state: null (general catalog) or 'jackie-chan' (dedicated hub)
+  // Navigation context state: null (general catalog) or a hub id from src/data/hubs.js
   // Seeded from the URL so a shared deep link lands in the right context on refresh (P2-1).
   const [currentShowContext, setCurrentShowContext] = useState(
     () => parseRoute(typeof window !== 'undefined' ? window.location.hash : '').context
@@ -133,17 +134,19 @@ export default function App() {
     return () => cancelAnimationFrame(raf2);
   }, []);
 
-  // Hub episode database — lazy-loaded on first entry (flaw fix F9)
-  const [jackieChanData, setJackieChanData] = useState(null);
+  // Hub episode databases — lazily loaded per hub on first entry (flaw fix F9).
+  // Keyed by hub id (see src/data/hubs.js): { 'jackie-chan': [...], 'tom-jerry': [...] }
+  const [hubData, setHubData] = useState({});
   const [episodesLoading, setEpisodesLoading] = useState(false);
 
   useEffect(() => {
-    if (currentShowContext !== 'jackie-chan' || jackieChanData) return;
+    const ctx = currentShowContext;
+    if (!ctx || !HUBS[ctx] || hubData[ctx]) return;
     let cancelled = false;
     setEpisodesLoading(true);
-    import('./data/jackie_chan.json')
+    HUBS[ctx].load()
       .then((mod) => {
-        if (!cancelled) setJackieChanData(mod.default);
+        if (!cancelled) setHubData((prev) => ({ ...prev, [ctx]: mod.default }));
       })
       .catch((err) => console.error('Failed to load episode database:', err))
       .finally(() => {
@@ -152,7 +155,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [currentShowContext, jackieChanData]);
+  }, [currentShowContext, hubData]);
 
   // P2-1: reconcile state whenever the URL hash changes (back/forward, manual
   // edit, or a hash pushed by an open action). Reads only — never writes back.
@@ -176,9 +179,10 @@ export default function App() {
   // Hub episodes wait for the lazily-loaded JSON; general entries resolve immediately.
   useEffect(() => {
     if (!routeWatchId) return;
-    if (currentShowContext === 'jackie-chan') {
-      if (!jackieChanData) return; // wait for the lazy load to finish
-      const episode = jackieChanData.find((c) => c.id === routeWatchId);
+    if (currentShowContext) {
+      const episodes = hubData[currentShowContext];
+      if (!episodes) return; // wait for the lazy load to finish
+      const episode = episodes.find((c) => c.id === routeWatchId);
       if (episode) setActiveCartoon(episode);
       setRouteWatchId(null);
     } else {
@@ -186,7 +190,7 @@ export default function App() {
       if (entry) setActiveCartoon(entry);
       setRouteWatchId(null);
     }
-  }, [routeWatchId, currentShowContext, jackieChanData]);
+  }, [routeWatchId, currentShowContext, hubData]);
 
   // Persist watchlist (ids) to localStorage
   useEffect(() => {
@@ -205,9 +209,9 @@ export default function App() {
   // Watchlist display objects derived from the CURRENT database (fixes stale copies — F8)
   const watchlist = useMemo(() => {
     const byId = new Map(cartoonsData.map((c) => [c.id, c]));
-    (jackieChanData || []).forEach((c) => byId.set(c.id, c));
+    Object.values(hubData).forEach((episodes) => episodes.forEach((c) => byId.set(c.id, c)));
     return watchlistIds.map((id) => byId.get(id)).filter(Boolean);
-  }, [watchlistIds, jackieChanData]);
+  }, [watchlistIds, hubData]);
 
   // "Continue watching" progress map (flaw fix F19 → real resume support, P2-2)
   const progressMapRef = useRef(readProgressMap());
@@ -244,12 +248,14 @@ export default function App() {
     }
   };
 
-  const enterJackieChanHub = () => {
-    changeContext('jackie-chan');
+  // Enter a dedicated show hub (id = hub id = hub-entry card id in cartoons.json)
+  const enterHub = (hubId) => {
+    if (!HUBS[hubId]) return;
+    changeContext(hubId);
     setTimeout(() => scrollToSection('hero'), 50);
   };
 
-  const leaveJackieChanHub = () => {
+  const leaveHub = () => {
     changeContext(null);
     setTimeout(() => scrollToSection('hero'), 50);
   };
@@ -305,12 +311,16 @@ export default function App() {
     selectedTalisman,
     selectedChannel,
     selectedEra,
-    jackieChanData,
+    hubData,
     episodesLoading,
   ]);
 
+  // Active hub (dedicated show context) config + episodes, if any
+  const activeHub = currentShowContext && HUBS[currentShowContext] ? HUBS[currentShowContext] : null;
+  const activeHubEpisodes = activeHub ? hubData[currentShowContext] || null : null;
+
   // Determine active database based on context
-  const activeData = currentShowContext === 'jackie-chan' ? jackieChanData || [] : cartoonsData;
+  const activeData = activeHub ? activeHubEpisodes || [] : cartoonsData;
 
   // Featured Hero Item
   const featuredCartoon = activeData.find((c) => c.isFeatured) || activeData[0];
@@ -318,17 +328,23 @@ export default function App() {
   // Helper lists extracted dynamically
   const channels = Array.from(new Set(cartoonsData.map((c) => c.channel)));
   const eras = ['1990s', '2000s'];
-  const seasons = useMemo(
-    () => Array.from(new Set((jackieChanData || []).map((c) => c.season))).sort((a, b) => a - b),
-    [jackieChanData]
-  );
-  const talismans = useMemo(
-    () =>
-      Array.from(new Set((jackieChanData || []).map((c) => c.talisman)))
-        .filter((t) => t !== 'None (Demon Wards)' && t !== 'None (Demon Portals)')
-        .sort(),
-    [jackieChanData]
-  );
+  // Season/era pills for the active hub (labels come from the hub config)
+  const seasons = useMemo(() => {
+    if (!activeHub || !activeHubEpisodes) return [];
+    return Array.from(new Set(activeHubEpisodes.map((c) => c.season)))
+      .sort((a, b) => a - b)
+      .map((num) => ({
+        num,
+        label: (activeHub.seasons.find((s) => s.num === num) || {}).label || `Season ${num}`,
+      }));
+  }, [activeHub, activeHubEpisodes]);
+  // Secondary hub filter — only hubs that declare one (Jackie Chan: talisman)
+  const talismans = useMemo(() => {
+    if (activeHub?.secondFilter !== 'talisman' || !activeHubEpisodes) return [];
+    return Array.from(new Set(activeHubEpisodes.map((c) => c.talisman)))
+      .filter((t) => t !== 'None (Demon Wards)' && t !== 'None (Demon Portals)')
+      .sort();
+  }, [activeHub, activeHubEpisodes]);
 
   // Advanced Combined Filtering Logic
   const filteredData = activeData.filter((item) => {
@@ -338,14 +354,12 @@ export default function App() {
         const isFav = watchlistIds.some((id) => id === item.id);
         if (!isFav) return false;
       } else {
-        if (currentShowContext === 'jackie-chan') {
-          let seasonNum = null;
-          if (activeCategory === 'season1') seasonNum = 1;
-          else if (activeCategory === 'season2') seasonNum = 2;
-          else if (activeCategory === 'season3') seasonNum = 3;
-          else if (activeCategory === 'season4') seasonNum = 4;
-          else if (activeCategory === 'season5') seasonNum = 5;
-          if (seasonNum !== null && item.season !== seasonNum) return false;
+        if (activeHub) {
+          // Hub season/era pills: "season1".."seasonN" (any hub — see hubs.js)
+          if (activeCategory.startsWith('season')) {
+            const seasonNum = parseInt(activeCategory.slice('season'.length), 10);
+            if (!Number.isNaN(seasonNum) && item.season !== seasonNum) return false;
+          }
         } else {
           if (item.category !== activeCategory) return false;
         }
@@ -356,14 +370,17 @@ export default function App() {
     if (debouncedSearch) {
       const query = debouncedSearch.toLowerCase();
       const matchesTitle = item.title.toLowerCase().includes(query);
-      const matchesTamil = item.tamilTitle.toLowerCase().includes(query);
-      const matchesDesc = item.description.toLowerCase().includes(query);
+      const matchesTamil = (item.tamilTitle || '').toLowerCase().includes(query);
+      const matchesDesc = (item.description || '').toLowerCase().includes(query);
       const matchesTags = item.tags.some((tag) => tag.toLowerCase().includes(query));
 
-      if (currentShowContext === 'jackie-chan') {
-        const matchesTalisman = item.talisman.toLowerCase().includes(query);
+      if (activeHub) {
+        const matchesTalisman = item.talisman
+          ? item.talisman.toLowerCase().includes(query)
+          : false;
+        const matchesYear = item.year ? item.year.toString().includes(query) : false;
         const matchesEpNum = `episode ${item.episode}`.includes(query) || `ep ${item.episode}`.includes(query);
-        if (!matchesTitle && !matchesTamil && !matchesDesc && !matchesTalisman && !matchesTags && !matchesEpNum) {
+        if (!matchesTitle && !matchesTamil && !matchesDesc && !matchesTalisman && !matchesTags && !matchesYear && !matchesEpNum) {
           return false;
         }
       } else {
@@ -376,7 +393,7 @@ export default function App() {
     }
 
     // 3. Sub-Filters
-    if (currentShowContext === 'jackie-chan') {
+    if (activeHub) {
       if (selectedSeason !== 'all' && item.season !== parseInt(selectedSeason)) return false;
       if (selectedTalisman !== 'all' && item.talisman !== selectedTalisman) return false;
     } else {
@@ -395,15 +412,14 @@ export default function App() {
   const hits2000s = filteredData.filter((c) => c.category === 'Early 2000s Hits');
   const actionAdventure = filteredData.filter((c) => c.category === 'Action & Adventure');
 
-  const season1Episodes = filteredData.filter((c) => c.season === 1);
-  const season2Episodes = filteredData.filter((c) => c.season === 2);
-  const season3Episodes = filteredData.filter((c) => c.season === 3);
-  const season4Episodes = filteredData.filter((c) => c.season === 4);
-  const season5Episodes = filteredData.filter((c) => c.season === 5);
+  // One row per hub season/era that has episodes (config-driven — hubs.js)
+  const hubSeasonRows = (activeHub?.seasons || [])
+    .map((s) => ({ ...s, episodes: filteredData.filter((c) => c.season === s.num) }))
+    .filter((s) => s.episodes.length > 0);
 
   // Grid display conditions
   const isFilteringActive = debouncedSearch ||
-    (currentShowContext === 'jackie-chan'
+    (activeHub
       ? (selectedSeason !== 'all' || selectedTalisman !== 'all')
       : (selectedChannel !== 'all' || selectedEra !== 'all'));
 
@@ -413,14 +429,16 @@ export default function App() {
   let gridTitle = 'Browsing Catalog';
   if (activeCategory === 'watchlist') {
     gridTitle = `My Personal Watchlist (${watchlist.length})`;
-  } else if (currentShowContext === 'jackie-chan') {
-    if (activeCategory === 'season1') gridTitle = 'Season 1: The Twelve Talismans';
-    else if (activeCategory === 'season2') gridTitle = 'Season 2: The Demon Portals';
-    else if (activeCategory === 'season3') gridTitle = 'Season 3: The Noble Animals';
-    else if (activeCategory === 'season4') gridTitle = 'Season 4: The Oni Masks';
-    else if (activeCategory === 'season5') gridTitle = 'Season 5: Relics of Demons Past';
-    else if (isFilteringActive) gridTitle = `Search Results (${filteredData.length})`;
-    else gridTitle = 'All Episodes';
+  } else if (activeHub) {
+    if (activeCategory.startsWith('season')) {
+      const seasonNum = parseInt(activeCategory.slice('season'.length), 10);
+      const seasonCfg = (activeHub.seasons || []).find((s) => s.num === seasonNum);
+      if (seasonCfg) gridTitle = seasonCfg.gridTitle;
+    }
+    if (gridTitle === 'Browsing Catalog') {
+      if (isFilteringActive) gridTitle = `Search Results (${filteredData.length})`;
+      else gridTitle = 'All Episodes';
+    }
   } else {
     if (activeCategory !== 'all') gridTitle = `${activeCategory} Collection`;
     else if (isFilteringActive) gridTitle = `Search Results (${filteredData.length})`;
@@ -433,7 +451,8 @@ export default function App() {
       <Navbar
         currentShowContext={currentShowContext}
         setCurrentShowContext={changeContext}
-        onExitHub={leaveJackieChanHub}
+        hub={activeHub}
+        onExitHub={leaveHub}
         activeCategory={activeCategory}
         setActiveCategory={setActiveCategory}
         watchlistCount={watchlist.length}
@@ -447,7 +466,7 @@ export default function App() {
         key={`hero-${currentShowContext || 'general'}`}
         featuredCartoon={featuredCartoon}
         onPlay={handlePlay}
-        onExplore={enterJackieChanHub}
+        onExplore={enterHub}
         isInWatchlist={featuredCartoon ? watchlist.some((item) => item.id === featuredCartoon.id) : false}
         onToggleWatchlist={handleToggleWatchlist}
         registerZone={registerZone}
@@ -457,7 +476,7 @@ export default function App() {
       {/* Advanced Search & Filter Section */}
       <SearchFilter
         key={`filter-${currentShowContext || 'general'}`}
-        currentShowContext={currentShowContext}
+        hub={activeHub}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         selectedChannel={selectedChannel}
@@ -477,7 +496,7 @@ export default function App() {
 
       {/* Dynamic Content Grid vs Netflix rows */}
       <main key={currentShowContext || 'general'} className="main-content-area" id="categories">
-        {currentShowContext === 'jackie-chan' && episodesLoading && (
+        {activeHub && episodesLoading && (
           <div className="episodes-loading lazy-reveal" role="status">
             <Loader label="Opening the archive…" />
           </div>
@@ -488,7 +507,7 @@ export default function App() {
             title={gridTitle}
             cartoons={filteredData}
             onPlay={handlePlay}
-            onExplore={enterJackieChanHub}
+            onExplore={enterHub}
             watchlist={watchlist}
             onToggleWatchlist={handleToggleWatchlist}
             isGrid={true}
@@ -504,7 +523,7 @@ export default function App() {
                 title="My Personal Watchlist"
                 cartoons={watchlist}
                 onPlay={handlePlay}
-                onExplore={enterJackieChanHub}
+                onExplore={enterHub}
                 watchlist={watchlist}
                 onToggleWatchlist={handleToggleWatchlist}
                 zoneId="row-watchlist"
@@ -513,65 +532,22 @@ export default function App() {
               />
             )}
 
-            {currentShowContext === 'jackie-chan' && !episodesLoading ? (
-              /* Dedicated Jackie Chan Adventures Hub Sections */
-              <>
+            {activeHub && !episodesLoading ? (
+              /* Dedicated Show Hub Sections — one row per configured season/era */
+              hubSeasonRows.map((s) => (
                 <MovieRow
-                  title="Season 1: The Twelve Talismans (சீசன் 1: 12 தாயத்துக்கள்)"
-                  cartoons={season1Episodes}
+                  key={`hub-row-${s.num}`}
+                  title={s.rowTitle}
+                  cartoons={s.episodes}
                   onPlay={handlePlay}
-                  onExplore={enterJackieChanHub}
+                  onExplore={enterHub}
                   watchlist={watchlist}
                   onToggleWatchlist={handleToggleWatchlist}
-                  zoneId="row-s1"
+                  zoneId={`row-s${s.num}`}
                   registerZone={registerZone}
                   unregisterZone={unregisterZone}
                 />
-                <MovieRow
-                  title="Season 2: The Demon Portals (சீசன் 2: நரகத்தின் கதவுகள்)"
-                  cartoons={season2Episodes}
-                  onPlay={handlePlay}
-                  onExplore={enterJackieChanHub}
-                  watchlist={watchlist}
-                  onToggleWatchlist={handleToggleWatchlist}
-                  zoneId="row-s2"
-                  registerZone={registerZone}
-                  unregisterZone={unregisterZone}
-                />
-                <MovieRow
-                  title="Season 3: The Noble Animals (சீசன் 3: உன்னத விலங்குகள்)"
-                  cartoons={season3Episodes}
-                  onPlay={handlePlay}
-                  onExplore={enterJackieChanHub}
-                  watchlist={watchlist}
-                  onToggleWatchlist={handleToggleWatchlist}
-                  zoneId="row-s3"
-                  registerZone={registerZone}
-                  unregisterZone={unregisterZone}
-                />
-                <MovieRow
-                  title="Season 4: The Oni Masks (சீசன் 4: ஓனி முகமூடிகள்)"
-                  cartoons={season4Episodes}
-                  onPlay={handlePlay}
-                  onExplore={enterJackieChanHub}
-                  watchlist={watchlist}
-                  onToggleWatchlist={handleToggleWatchlist}
-                  zoneId="row-s4"
-                  registerZone={registerZone}
-                  unregisterZone={unregisterZone}
-                />
-                <MovieRow
-                  title="Season 5: Relics of Demons Past (சீசன் 5: அரக்கர்களின் நினைவுச்சின்னங்கள்)"
-                  cartoons={season5Episodes}
-                  onPlay={handlePlay}
-                  onExplore={enterJackieChanHub}
-                  watchlist={watchlist}
-                  onToggleWatchlist={handleToggleWatchlist}
-                  zoneId="row-s5"
-                  registerZone={registerZone}
-                  unregisterZone={unregisterZone}
-                />
-              </>
+              ))
             ) : !currentShowContext ? (
               /* General Retro Tamil Cartoon Catalog Sections */
               <>
@@ -579,7 +555,7 @@ export default function App() {
                   title="90s Classics (90ஸ் கிளாசிக்ஸ்)"
                   cartoons={classics90s}
                   onPlay={handlePlay}
-                  onExplore={enterJackieChanHub}
+                  onExplore={enterHub}
                   watchlist={watchlist}
                   onToggleWatchlist={handleToggleWatchlist}
                   zoneId="row-90s"
@@ -590,7 +566,7 @@ export default function App() {
                   title="Early 2000s Hits (2000ஸ் ஹிட்ஸ்)"
                   cartoons={hits2000s}
                   onPlay={handlePlay}
-                  onExplore={enterJackieChanHub}
+                  onExplore={enterHub}
                   watchlist={watchlist}
                   onToggleWatchlist={handleToggleWatchlist}
                   zoneId="row-2000s"
@@ -601,7 +577,7 @@ export default function App() {
                   title="Action & Adventure (சண்டை & சாகசம்)"
                   cartoons={actionAdventure}
                   onPlay={handlePlay}
-                  onExplore={enterJackieChanHub}
+                  onExplore={enterHub}
                   watchlist={watchlist}
                   onToggleWatchlist={handleToggleWatchlist}
                   zoneId="row-action"

@@ -37,8 +37,10 @@ Deep dives: [`README.md`](README.md) (overview) · [`features.md`](features.md) 
 | Path                        | Owner domain                | Notes                                                        |
 | --------------------------- | --------------------------- | ------------------------------------------------------------ |
 | `src/App.jsx`               | App logic / filtering       | State owner; most conflict-prone — coordinate before editing  |
-| `src/data/cartoons.json`    | Content (general catalog)   | Follow schema in `features.md §9.1`; exactly one hub-entry card |
-| `src/data/jackie_chan.json` | Content (JCA hub)           | `s<season>e<episode>` ids; S1 incomplete (tracked task P1-3)  |
+| `src/data/cartoons.json`    | Content (general catalog)   | Follow schema in `features.md §9.1`; one hub-entry card per hub |
+| `src/data/hubs.js`          | Hub registry                | Register new hubs here (id must match the hub-entry card id) |
+| `src/data/jackie_chan.json` | Content (JCA hub)           | `s<season>e<episode>` ids; 95 episodes indexed |
+| `src/data/tom_jerry.json`   | Content (T&J hub)           | `tj-<nnn>` ids; 240 episodes, era "seasons" via `seasonLabel` |
 | `src/components/VideoModal.jsx` | Player / streaming     | Test playback after every change                              |
 | `src/components/MovieRow.jsx` | Rows / grid             | Registers a focus zone per row (`zoneId`)                     |
 | `src/components/Navbar.jsx` | Navigation                  | Registers `navbar` zone; context-aware pills                  |

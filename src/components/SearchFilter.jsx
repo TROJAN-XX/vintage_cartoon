@@ -2,7 +2,7 @@ import React from 'react';
 import { Search, RefreshCw, Calendar, Tv, Shield } from 'lucide-react';
 
 export default function SearchFilter({ 
-  currentShowContext,
+  hub,
   searchQuery, 
   setSearchQuery, 
   selectedChannel, 
@@ -20,7 +20,7 @@ export default function SearchFilter({
   resetFilters
 }) {
   const isFilterActive = searchQuery || 
-    (currentShowContext === 'jackie-chan' 
+    (hub 
       ? (selectedSeason !== 'all' || selectedTalisman !== 'all')
       : (selectedChannel !== 'all' || selectedEra !== 'all'));
 
@@ -35,8 +35,8 @@ export default function SearchFilter({
             type="text"
             className="search-bar-input"
             placeholder={
-              currentShowContext === 'jackie-chan'
-                ? "Search episodes by title, synopsis, tags, or talisman..."
+              hub
+                ? hub.searchHint
                 : "Search cartoons by title, characters, tags, or memory..."
             }
             value={searchQuery}
@@ -52,55 +52,57 @@ export default function SearchFilter({
         {/* Filter Controls Row */}
         <div className="filter-controls-row lazy-reveal reveal-up delay-100">
           
-          {currentShowContext === 'jackie-chan' ? (
-            /* Jackie Chan Episode Hub Controls */
+          {hub ? (
+            /* Dedicated Hub Episode Controls (generic — see src/data/hubs.js) */
             <>
-              {/* Season Filters */}
+              {/* Season / Era Filters */}
               <div className="filter-group">
                 <label className="filter-label">
                   <Calendar size={14} className="filter-label-icon" />
-                  <span>Season</span>
+                  <span>{hub.seasonGroupName}</span>
                 </label>
                 <div className="filter-pills">
                   <button
                     onClick={() => setSelectedSeason('all')}
                     className={`filter-pill ${selectedSeason === 'all' ? 'active' : ''}`}
                   >
-                    All Seasons
+                    {hub.allSeasonsLabel}
                   </button>
                   {seasons.map((season) => (
                     <button
-                      key={season}
-                      onClick={() => setSelectedSeason(season)}
-                      className={`filter-pill ${selectedSeason === season ? 'active' : ''}`}
+                      key={season.num}
+                      onClick={() => setSelectedSeason(String(season.num))}
+                      className={`filter-pill ${selectedSeason === String(season.num) ? 'active' : ''}`}
                     >
-                      Season {season}
+                      {season.label}
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Talisman Filter Dropdown */}
-              <div className="filter-group">
-                <label className="filter-label">
-                  <Shield size={14} className="filter-label-icon" />
-                  <span>Talisman Power</span>
-                </label>
-                <div className="custom-select-wrapper">
-                  <select
-                    value={selectedTalisman}
-                    onChange={(e) => setSelectedTalisman(e.target.value)}
-                    className="talisman-select-neon"
-                  >
-                    <option value="all">All Talismans</option>
-                    {talismans.map((talisman) => (
-                      <option key={talisman} value={talisman}>
-                        {talisman}
-                      </option>
-                    ))}
-                  </select>
+              {/* Secondary Filter Dropdown — only for hubs that declare one */}
+              {talismans.length > 0 && (
+                <div className="filter-group">
+                  <label className="filter-label">
+                    <Shield size={14} className="filter-label-icon" />
+                    <span>Talisman Power</span>
+                  </label>
+                  <div className="custom-select-wrapper">
+                    <select
+                      value={selectedTalisman}
+                      onChange={(e) => setSelectedTalisman(e.target.value)}
+                      className="talisman-select-neon"
+                    >
+                      <option value="all">All Talismans</option>
+                      {talismans.map((talisman) => (
+                        <option key={talisman} value={talisman}>
+                          {talisman}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
-              </div>
+              )}
             </>
           ) : (
             /* General Cartoon Catalog Controls */

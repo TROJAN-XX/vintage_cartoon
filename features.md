@@ -21,9 +21,11 @@ The home view presents the catalog in **Netflix-style horizontal rows**, each ro
 - The catalog contains full series (Dexter's Laboratory, Spider-Man TAS, Ben 10, Tom & Jerry, He-Man, Jackie Chan…) each with Tamil metadata and broadcast channel.
 - Channel names (Chutti TV, Cartoon Network, Sun TV, …) are **derived dynamically** from the JSON — add a new channel value and the filter dropdown updates automatically.
 
-### 1.2 Jackie Chan Adventures hub (`src/data/jackie_chan.json`)
+### 1.2 Dedicated show hubs (`src/data/hubs.js` registry)
 
-A dedicated "Special Features Hub" context, entered via the featured Hero card (or `Explore` buttons):
+A dedicated "Special Features Hub" context, entered via the featured Hero card or a hub-entry card in the catalog (card id = hub id). Each hub lazily loads its own episode JSON on first entry and is browsed season-wise. Hubs are registered in **`src/data/hubs.js`** — adding a hub is data-only (no component changes).
+
+**Jackie Chan Adventures** (`src/data/jackie_chan.json`, id `jackie-chan`):
 
 - **5 season rows**, each with bilingual titles:
   - Season 1: The Twelve Talismans (12 தாயத்துக்கள்)
@@ -32,9 +34,17 @@ A dedicated "Special Features Hub" context, entered via the featured Hero card (
   - Season 4: The Oni Masks (ஓனி முகமூடிகள்)
   - Season 5: Relics of Demons Past (அரக்கர்களின் நினைவுச்சின்னங்கள்)
 - **95 episodes currently indexed** (S1: 13, S2: 39, S3: 17, S4: 14, S5: 12).
-- Navbar switches to **season pills** (`S1`–`S5`, All Episodes, Watchlist).
+- Navbar switches to **season pills** (`S1`–`S5`, All Seasons, Watchlist).
 - The **Talisman filter** lets users find episodes featuring a specific talisman (Rooster, Ox, Pig, Snake, …). Demon Ward/Demon Portal entries are excluded from the dropdown.
 - Every episode lists its talisman power, synopsis, rating, duration and descriptive tags.
+
+**Tom and Jerry** (`src/data/tom_jerry.json`, id `tom-jerry`):
+
+- **240 full episodes** from the Internet Archive collection, browsed in **4 era rows** (the "seasons" are production eras): 1940s (46), 1950s (68), 1960s (47), and Tom and Jerry Tales 2005–2007 (79).
+- Episodes carry a **`seasonLabel`** (`"1940s"`, `"1950s"`, `"1960s"`, `"Tales"`) which replaces the "Season N" display everywhere (badges, meta rows, filters) — the numeric `season` field is still what filtering keys on.
+- Navbar pills are the era labels; there is **no talisman dropdown** (the hub declares `secondFilter: null`).
+- Ids follow `tj-<nnn>` in uploader-chronological order (`tj-001` = *Puss Gets the Boot*, the hub's featured episode).
+- Search also matches `year` and `episode N` / `ep N` (era rows mix decades, so year search matters).
 
 ### 1.3 View modes: rows vs grid
 
@@ -55,14 +65,14 @@ Search is **case-insensitive and bilingual**. Each catalog type has its own matc
 | Catalog        | Matched fields                                                                |
 | -------------- | ----------------------------------------------------------------------------- |
 | General        | `title`, `tamilTitle`, `description`, `tags[]`, `channel`, `year`             |
-| Jackie Chan    | `title`, `tamilTitle`, `description`, `talisman`, `tags[]`, `episode N` / `ep N` |
+| Hub episodes   | `title`, `tamilTitle`, `description`, `tags[]`, `year`, `episode N` / `ep N`, plus the hub's second filter field (Jackie Chan: `talisman`) |
 
 Filters combine with search (AND logic):
 
 | Context       | Filters                                                                                       |
 | ------------- | --------------------------------------------------------------------------------------------- |
 | General       | Channel dropdown (derived), Era (`1990s` = year < 2000, `2000s` = year ≥ 2000)                 |
-| Jackie Chan   | Season number (parsed int), Talisman dropdown                                                  |
+| Hub (any)     | Season/era pills (labels from `hubs.js`), plus the hub's optional second filter (Jackie Chan: Talisman dropdown) |
 
 - `Reset` button clears everything (`resetFilters`).
 - Filters reset automatically when switching catalog ↔ hub contexts.
@@ -215,13 +225,13 @@ Resulting production bundle (verified build): initial JS ≈ 338 kB uncompressed
 }
 ```
 
-**Hub entry card:** the first object (`id: "jackie-chan"`) has `isShowHubEntry: true` and an **empty `videoUrl`** — clicking it enters the hub instead of playing media. Keep exactly one such card.
+**Hub entry cards:** cards with `isShowHubEntry: true` and an **empty `videoUrl`** route to their hub instead of playing media — the card's `id` must equal the hub id in `src/data/hubs.js` (`jackie-chan`, `tom-jerry`). Exactly one such card per registered hub; the hub's `isFeatured` hero lives in the hub's own episode JSON.
 
-### 9.2 `jackie_chan.json` (hub episodes)
+### 9.2 Hub episode JSON (`jackie_chan.json`, `tom_jerry.json`)
 
 ```jsonc
 {
-  "id": "s1e01",                         // s<season>e<episode>
+  "id": "s1e01",                         // hub-specific: s<season>e<ep> (Jackie), tj-<nnn> (Tom & Jerry)
   "title": "The Dark Hand",
   "tamilTitle": "தி டார்க் ஹேண்ட்",
   "description": "…",
@@ -229,13 +239,16 @@ Resulting production bundle (verified build): initial JS ≈ 338 kB uncompressed
   "videoUrl": "https://archive.org/download/<item>/<file>.mp4",
   "audioUrl": "https://archive.org/download/<tamil-dub-item>/Season_1/S01E01_…_Tamil.m4a",
   "captionsUrl": "https://…vtt",         // OPTIONAL WebVTT captions track
-  "season": 1,                           // integer 1–5
+  "season": 1,                           // integer bucket (real season, or era for Tom & Jerry)
+  "seasonLabel": "1940s",                // OPTIONAL display override — replaces "Season N" in badges/meta/filters
   "episode": 1,                          // integer within season
-  "talisman": "Rooster (Levitation)",    // or 'None (Demon Wards)' etc.
+  "talisman": "Rooster (Levitation)",    // OPTIONAL Jackie-Chan-specific; omit elsewhere
+  "channel": "MGM",                      // OPTIONAL broadcaster/studio (shown when present)
+  "year": 1940,                          // OPTIONAL production year (searchable in hubs)
   "duration": "21 min",
   "rating": "9.5",
   "tags": ["Rooster Talisman", "Section 13"],
-  "isFeatured": false
+  "isFeatured": false                    // exactly one episode per hub is the hero
 }
 ```
 

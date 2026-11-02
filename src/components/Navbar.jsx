@@ -4,6 +4,7 @@ import { Tv, Heart, ArrowLeft } from 'lucide-react';
 export default function Navbar({ 
   currentShowContext, 
   setCurrentShowContext, 
+  hub,
   onExitHub,
   activeCategory, 
   setActiveCategory, 
@@ -35,16 +36,14 @@ export default function Navbar({
     { id: 'watchlist', name: 'My Watchlist' }
   ];
 
-  // Jackie Chan view nav links
-  const jackieCategories = [
-    { id: 'all', name: 'All Episodes' },
-    { id: 'season1', name: 'S1' },
-    { id: 'season2', name: 'S2' },
-    { id: 'season3', name: 'S3' },
-    { id: 'season4', name: 'S4' },
-    { id: 'season5', name: 'S5' },
-    { id: 'watchlist', name: 'Watchlist' }
-  ];
+  // Hub view nav links — derived from the active hub config (src/data/hubs.js)
+  const hubCategories = hub
+    ? [
+        { id: 'all', name: hub.allSeasonsLabel },
+        ...hub.seasons.map((s) => ({ id: `season${s.num}`, name: s.nav })),
+        { id: 'watchlist', name: 'Watchlist' },
+      ]
+    : [];
 
   const handleLogoClick = () => {
     setCurrentShowContext(null);
@@ -69,46 +68,31 @@ export default function Navbar({
           <Tv className="logo-icon" />
           <span className="logo-text">
             VINTAGE<span className="logo-highlight">CARTOON</span>
-            {currentShowContext === 'jackie-chan' && (
-              <span className="logo-context-tag">/JACKIE_CHAN</span>
+            {hub && (
+              <span className="logo-context-tag">/{hub.tag}</span>
             )}
           </span>
         </div>
 
         {/* Dynamic Category Navigation Links */}
         <nav className="navbar-links" ref={navLinksRef}>
-          {currentShowContext === 'jackie-chan' ? (
-            jackieCategories.map((cat) => (
-              <button
-                key={cat.id}
-                onClick={() => handleCategoryClick(cat.id)}
-                className={`nav-link ${activeCategory === cat.id ? 'active' : ''}`}
-              >
-                {cat.name}
-                {cat.id === 'watchlist' && watchlistCount > 0 && (
-                  <span className="nav-watchlist-badge">{watchlistCount}</span>
-                )}
-              </button>
-            ))
-          ) : (
-            generalCategories.map((cat) => (
-              <button
-                key={cat.id}
-                onClick={() => handleCategoryClick(cat.id)}
-                className={`nav-link ${activeCategory === cat.id ? 'active' : ''}`}
-              >
-                {cat.name}
-                {cat.id === 'watchlist' && watchlistCount > 0 && (
-                  <span className="nav-watchlist-badge">{watchlistCount}</span>
-                )}
-              </button>
-            ))
-          )}
+          {(hub ? hubCategories : generalCategories).map((cat) => (
+            <button
+              key={cat.id}
+              onClick={() => handleCategoryClick(cat.id)}
+              className={`nav-link ${activeCategory === cat.id ? 'active' : ''}`}
+            >
+              {cat.name}
+              {cat.id === 'watchlist' && watchlistCount > 0 && (
+                <span className="nav-watchlist-badge">{watchlistCount}</span>
+              )}
+            </button>
+          ))}
         </nav>
 
         {/* Action Panel */}
         <div className="navbar-actions">
-          {currentShowContext === 'jackie-chan' ? (
+          {hub ? (
             <button
               className="reset-filters-btn-glowing"
               onClick={onExitHub || (() => setCurrentShowContext(null))}

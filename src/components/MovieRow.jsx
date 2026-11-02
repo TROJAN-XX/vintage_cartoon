@@ -152,7 +152,8 @@ function CartoonCard({ cartoon, onPlay, onExplore, isFav, onToggleFav }) {
 
   const handleCardClick = () => {
     if (isHubEntry && onExplore) {
-      onExplore();
+      // Hub-entry card ids double as hub ids (see src/data/hubs.js)
+      onExplore(cartoon.id);
     } else {
       onPlay(cartoon);
     }
@@ -267,7 +268,9 @@ function CartoonCard({ cartoon, onPlay, onExplore, isFav, onToggleFav }) {
           {isHubEntry ? (
             'SPECIAL HUB'
           ) : isEpisode ? (
-            `S${cartoon.season} E${cartoon.episode}`
+            cartoon.seasonLabel
+              ? `EP ${cartoon.episode}`
+              : `S${cartoon.season} E${cartoon.episode}`
           ) : (
             cartoon.channel
           )}
@@ -312,20 +315,24 @@ function CartoonCard({ cartoon, onPlay, onExplore, isFav, onToggleFav }) {
           </span>
           <span className="card-meta-divider">•</span>
           <span className="card-meta-item">
-            {isHubEntry ? 'Explore Selections' : isEpisode ? `Season ${cartoon.season}` : cartoon.year}
+            {isHubEntry
+              ? 'Explore Selections'
+              : isEpisode
+                ? (cartoon.seasonLabel || `Season ${cartoon.season}`)
+                : cartoon.year}
           </span>
           <span className="card-meta-divider">•</span>
           <span className="card-meta-item">{cartoon.duration}</span>
         </div>
 
-        {/* Custom Talisman or Channel Line */}
-        {isEpisode ? (
+        {/* Episode talisman line, else Broadcaster — only when the field exists */}
+        {isEpisode && cartoon.talisman ? (
           <div className="card-talisman-line">
             <Shield size={12} className="talisman-icon-small" />
             <span className="talisman-text-small">{cartoon.talisman}</span>
           </div>
         ) : (
-          !isHubEntry && (
+          !isHubEntry && cartoon.channel && (
             <div className="card-channel-line" style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.8rem' }}>
               Broadcaster: {cartoon.channel}
             </div>

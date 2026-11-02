@@ -44,22 +44,28 @@ export default function Hero({ featuredCartoon, onPlay, onExplore, isInWatchlist
         </div>
         
         <h1 className="hero-title lazy-reveal reveal-right delay-100">{featuredCartoon.title}</h1>
-        <h2 className="hero-subtitle lazy-reveal reveal-right delay-200">{featuredCartoon.tamilTitle}</h2>
+        {featuredCartoon.tamilTitle && (
+          <h2 className="hero-subtitle lazy-reveal reveal-right delay-200">{featuredCartoon.tamilTitle}</h2>
+        )}
 
-        {/* Metadata Badges */}
+        {/* Metadata Badges (fields guarded — hub episodes vary by show) */}
         <div className="hero-metadata lazy-reveal reveal-up delay-300">
-          <span className="meta-badge channel-badge">
-            <Tv size={14} className="meta-icon" />
-            {featuredCartoon.channel}
-          </span>
+          {featuredCartoon.channel && (
+            <span className="meta-badge channel-badge">
+              <Tv size={14} className="meta-icon" />
+              {featuredCartoon.channel}
+            </span>
+          )}
           <span className="meta-badge rating-badge">
             <Star size={14} className="meta-icon text-yellow" />
             {featuredCartoon.rating} / 10
           </span>
-          <span className="meta-badge year-badge">
-            <Calendar size={14} className="meta-icon" />
-            {featuredCartoon.year}
-          </span>
+          {featuredCartoon.year && (
+            <span className="meta-badge year-badge">
+              <Calendar size={14} className="meta-icon" />
+              {featuredCartoon.year}
+            </span>
+          )}
           <span className="meta-badge duration-badge">
             <Clock size={14} className="meta-icon" />
             {featuredCartoon.duration}
@@ -81,7 +87,7 @@ export default function Hero({ featuredCartoon, onPlay, onExplore, isInWatchlist
         {/* Interactive Action Buttons */}
         <div className="hero-actions lazy-reveal reveal-up delay-600">
           {isHubEntry ? (
-            <button className="play-button-glowing" onClick={onExplore}>
+            <button className="play-button-glowing" onClick={() => onExplore(featuredCartoon.id)}>
               <Compass className="play-icon-fill" />
               <span>Explore Series</span>
             </button>
