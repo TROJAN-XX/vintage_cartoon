@@ -12,7 +12,7 @@
     "duration": "5 Seasons",
     "rating": "9.8",
     "tags": ["Special Hub", "All Seasons", "Talisman Filter", "Jade & Uncle"],
-    "isFeatured": true,
+    "isFeatured": false,
     "isShowHubEntry": true
   },
   {
@@ -73,7 +73,7 @@
     "duration": "240 Episodes",
     "rating": "9.7",
     "tags": ["Special Hub", "All Eras", "240 Episodes", "Cat & Mouse"],
-    "isFeatured": false,
+    "isFeatured": true,
     "isShowHubEntry": true
   },
   {

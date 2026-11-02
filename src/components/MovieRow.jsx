@@ -166,12 +166,13 @@ function CartoonCard({ cartoon, onPlay, onExplore, isFav, onToggleFav }) {
     if (!card || !rect) return;
     const x = targetRef.current.x;
     const y = targetRef.current.y;
-    const rotateX = -((y - rect.top - rect.height / 2) / (rect.height / 2)) * 10;
-    const rotateY = ((x - rect.left - rect.width / 2) / (rect.width / 2)) * 10;
+    // Softened tilt (lower intensity) — subtle depth without feeling heavy
+    const rotateX = -((y - rect.top - rect.height / 2) / (rect.height / 2)) * 5;
+    const rotateY = ((x - rect.left - rect.width / 2) / (rect.width / 2)) * 5;
     card.style.transition = 'transform 0.1s cubic-bezier(0.25, 0.8, 0.25, 1)';
-    card.style.transform = `perspective(1000px) rotateX(${rotateX.toFixed(2)}deg) rotateY(${rotateY.toFixed(2)}deg) translateY(-6px) scale(1.02)`;
+    card.style.transform = `perspective(1000px) rotateX(${rotateX.toFixed(2)}deg) rotateY(${rotateY.toFixed(2)}deg) translateY(-4px) scale(1.01)`;
     if (glareRef.current) {
-      glareRef.current.style.opacity = '0.12';
+      glareRef.current.style.opacity = '0.07';
       glareRef.current.style.background = `radial-gradient(circle at ${x - rect.left}px ${y - rect.top}px, rgba(255, 255, 255, 0.4) 0%, transparent 60%)`;
     }
   };
